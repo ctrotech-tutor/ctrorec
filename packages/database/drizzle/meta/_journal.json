@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1793286082907,
+      "tag": "0000_kind_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793286895350,
+      "tag": "0001_authentication",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793287843696,
+      "tag": "0002_lecture_audio",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793537924718,
+      "tag": "0003_audio_derivatives",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793540673800,
+      "tag": "0004_first_christian_walker",
+      "breakpoints": true
+    }
+  ]
+}

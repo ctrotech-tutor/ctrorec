@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.output/
+coverage/
+playwright-report/
+test-results/
+pnpm-lock.yaml
+**/routeTree.gen.ts
+packages/database/drizzle/meta/

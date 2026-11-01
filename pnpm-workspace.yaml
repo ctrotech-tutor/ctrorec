@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+
+autoInstallPeers: true
+engineStrict: true
+preferWorkspacePackages: true
+saveExact: true
+savePrefix: ''
+strictPeerDependencies: true
+
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
+  '@scarf/scarf': false
+permissions:
+  '@tanstack/react-router':
+    skills: false
+  '@tanstack/react-start':
+    skills: false

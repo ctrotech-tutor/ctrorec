@@ -1,0 +1,1 @@
+export const AUDIO_STORAGE = Symbol('WORKER_AUDIO_STORAGE')

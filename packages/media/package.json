@@ -1,0 +1,35 @@
+{
+  "name": "@ctrorec/media",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./cloudinary": {
+      "types": "./dist/cloudinary.d.ts",
+      "default": "./dist/cloudinary.js"
+    },
+    "./configured": {
+      "types": "./dist/configured-storage.d.ts",
+      "default": "./dist/configured-storage.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "vitest run",
+    "evidence:cloudinary": "tsx scripts/cloudinary-evidence.ts"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "cloudinary": "2.11.0"
+  }
+}
