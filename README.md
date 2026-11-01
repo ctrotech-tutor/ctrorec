@@ -31,8 +31,8 @@ The product name is lowercase `ctrorec`. Production vector/PNG masters and usage
 Requirements: Node 26.13+, pnpm 12.16+, FFmpeg (including local/browser integration tests), and Docker with Compose.
 
 ```sh
-corepack enable
-pnpm install
+npm install --global pnpm@12.16.1
+pnpm install --frozen-lockfile
 cp .env.example .env
 docker compose up -d --wait postgres
 pnpm db:migrate
