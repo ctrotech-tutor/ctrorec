@@ -38,6 +38,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install PostgreSQL 18 client tools
+        shell: bash
+        run: |
+          sudo apt-get install -y ca-certificates curl
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+      - run: pg_dump --version && pg_restore --version
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck

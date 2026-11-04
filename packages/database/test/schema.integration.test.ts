@@ -16,6 +16,7 @@ import {
   lectureAudioCaptures,
   lectureAudioDerivatives,
   lectureAudioUploads,
+  lectureMediaHolds,
   lecturerAssignments,
   lectures,
   membershipRoles,
@@ -109,6 +110,73 @@ describe('academic database invariants', () => {
         .select()
         .from(institutionInvitations)
         .where(eq(institutionInvitations.email, values.email)),
+    ).toHaveLength(2)
+  })
+
+  it('enforces one active media hold and complete release provenance', async () => {
+    const fixture = await createAcademicFixture(db, 'media-holds')
+    const lecture = exactlyOne(
+      await db
+        .insert(lectures)
+        .values({
+          institutionId: fixture.institution.id,
+          courseOfferingId: fixture.offering.id,
+          createdByMembershipId: fixture.lecturerMembership.id,
+          title: 'Retention-controlled lecture',
+          occurredAt: new Date('2026-11-04T09:00:00.000Z'),
+        })
+        .returning(),
+    )
+    const hold = exactlyOne(
+      await db
+        .insert(lectureMediaHolds)
+        .values({
+          institutionId: fixture.institution.id,
+          lectureId: lecture.id,
+          createdByMembershipId: fixture.lecturerMembership.id,
+          reason: 'Retention review',
+        })
+        .returning(),
+    )
+    await expectPostgresError(
+      db.insert(lectureMediaHolds).values({
+        institutionId: fixture.institution.id,
+        lectureId: lecture.id,
+        createdByMembershipId: fixture.lecturerMembership.id,
+        reason: 'Duplicate active hold',
+      }),
+      {
+        code: '23505',
+        constraint: 'lecture_media_holds_active_lecture_unique',
+      },
+    )
+    await expectPostgresError(
+      db
+        .update(lectureMediaHolds)
+        .set({ releasedAt: new Date() })
+        .where(eq(lectureMediaHolds.id, hold.id)),
+      { code: '23514', constraint: 'lecture_media_holds_release_complete' },
+    )
+
+    await db
+      .update(lectureMediaHolds)
+      .set({
+        releasedAt: new Date(),
+        releasedByMembershipId: fixture.lecturerMembership.id,
+        releaseReason: 'Review completed',
+      })
+      .where(eq(lectureMediaHolds.id, hold.id))
+    await db.insert(lectureMediaHolds).values({
+      institutionId: fixture.institution.id,
+      lectureId: lecture.id,
+      createdByMembershipId: fixture.lecturerMembership.id,
+      reason: 'Later independent hold',
+    })
+    expect(
+      await db
+        .select()
+        .from(lectureMediaHolds)
+        .where(eq(lectureMediaHolds.lectureId, lecture.id)),
     ).toHaveLength(2)
   })
 
@@ -522,7 +590,7 @@ describe('academic database invariants', () => {
     )
   })
 
-  it('enforces capture-provenance tenancy, timeline, and original preservation', async () => {
+  it('enforces capture-provenance tenancy, timeline, and lecture preservation', async () => {
     const first = await createAcademicFixture(db, 'capture-one')
     const second = await createAcademicFixture(db, 'capture-two')
     const lecture = exactlyOne(
@@ -570,7 +638,7 @@ describe('academic database invariants', () => {
         ...capture,
         institutionId: second.institution.id,
       }),
-      { code: '23503', constraint: 'lecture_audio_captures_original_fk' },
+      { code: '23503', constraint: 'lecture_audio_captures_lecture_fk' },
     )
     await db.insert(lectureAudioCaptures).values(capture)
     await expectPostgresError(
@@ -590,9 +658,11 @@ describe('academic database invariants', () => {
         constraint: 'lecture_audio_captures_handoff_measurements_valid',
       },
     )
+    await db.delete(lectureAudio).where(eq(lectureAudio.lectureId, lecture.id))
+    expect(await db.select().from(lectureAudioCaptures)).toHaveLength(1)
     await expectPostgresError(
-      db.delete(lectureAudio).where(eq(lectureAudio.lectureId, lecture.id)),
-      { code: '23001', constraint: 'lecture_audio_captures_original_fk' },
+      db.delete(lectures).where(eq(lectures.id, lecture.id)),
+      { code: '23001', constraint: 'lecture_audio_captures_lecture_fk' },
     )
   })
 

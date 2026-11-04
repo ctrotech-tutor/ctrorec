@@ -1,6 +1,9 @@
-import { randomUUID } from 'node:crypto'
 import { rm } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
+import {
+  MediaObjectStateChangedError,
+  MediaRetentionError,
+} from '@ctrorec/database'
 import {
   BadRequestException,
   ConflictException,
@@ -80,6 +83,7 @@ export interface LectureView {
   status: string
   publishedAt: string | null
   audio: AudioView | null
+  mediaDeletion: { requestedAt: string; completedAt: string | null } | null
 }
 
 interface ManageContext {
@@ -196,6 +200,7 @@ export class LecturesService {
       lecture: created,
       audio: null,
       dataSaver: null,
+      mediaDeletion: null,
     })
   }
 
@@ -310,14 +315,18 @@ export class LecturesService {
       userId,
       lectureId,
     )
+    if (lecture.mediaDeletion) {
+      throw new ConflictException(
+        'The institution deleted this lecture media. Create a new lecture instead of replacing it.',
+      )
+    }
     if (lecture.lecture.status !== 'draft' || lecture.audio) {
       throw new ConflictException(
         'This lecture already has an original recording.',
       )
     }
 
-    let saved = false
-    let key = ''
+    let mediaIntent: { id: string; key: string } | undefined
     try {
       let inspected
       try {
@@ -346,10 +355,25 @@ export class LecturesService {
       const capture = captureInput
         ? cleanCaptureProvenance(captureInput, inspected.mediaType)
         : undefined
-      key = `${lecture.lecture.institutionId}/${lectureId}/${randomUUID()}.${audioFileExtension(inspected.mediaType)}`
       await this.mediaJobs.ready()
-      await this.storage.save(key, file.path)
-      saved = true
+      const intentId = await this.repository.newMediaObjectIntentId()
+      const intent = {
+        id: intentId,
+        key: `${lecture.lecture.institutionId}/${lectureId}/${intentId}.${audioFileExtension(inspected.mediaType)}`,
+      }
+      mediaIntent = intent
+      await this.repository.createMediaObjectIntent({
+        id: intent.id,
+        lectureId,
+        institutionId: lecture.lecture.institutionId,
+        kind: 'original',
+        storageProvider: this.storage.provider,
+        storageKey: intent.key,
+        byteSize: inspected.byteSize,
+        sha256: inspected.sha256,
+      })
+      await this.storage.save(intent.key, file.path)
+      await this.storage.verify(intent.key, inspected.byteSize)
       try {
         const { audio, dataSaver } = await this.repository.insertAudio(
           {
@@ -357,12 +381,13 @@ export class LecturesService {
             institutionId: lecture.lecture.institutionId,
             uploadedByMembershipId: access.membershipId,
             storageProvider: this.storage.provider,
-            storageKey: key,
+            storageKey: intent.key,
             originalFileName: cleanAudioFileName(file.originalname),
             mediaType: inspected.mediaType,
             byteSize: inspected.byteSize,
             sha256: inspected.sha256,
           },
+          intent.id,
           (transaction, derivative) =>
             this.mediaJobs.publishDataSaver(derivative, transaction),
           completedUploadId,
@@ -375,6 +400,11 @@ export class LecturesService {
             'The upload session changed. Check its status before retrying.',
           )
         }
+        if (error instanceof MediaObjectStateChangedError) {
+          throw new ConflictException(
+            'The recording lifecycle changed. Check the lecture before retrying.',
+          )
+        }
         if (isUniqueViolation(error)) {
           throw new ConflictException(
             'This lecture already has an original recording.',
@@ -383,15 +413,11 @@ export class LecturesService {
         throw error
       }
     } catch (error) {
-      if (saved) {
-        try {
-          await this.storage.delete(key)
-        } catch (cleanupError) {
-          this.logger.error(
-            'Failed to compensate a stored audio object.',
-            cleanupError instanceof Error ? cleanupError.stack : undefined,
-          )
-        }
+      if (mediaIntent) {
+        await this.compensateMediaObject(mediaIntent)
+      }
+      if (error instanceof MediaRetentionError) {
+        throw new ConflictException(error.message)
       }
       throw error
     } finally {
@@ -404,6 +430,30 @@ export class LecturesService {
           }`,
         )
       }
+    }
+  }
+
+  private async compensateMediaObject(intent: {
+    id: string
+    key: string
+  }): Promise<void> {
+    try {
+      const deletion = await this.repository.requestMediaObjectDeletion(
+        intent.id,
+      )
+      if (!deletion) {
+        return
+      }
+      if (deletion.storageProvider !== this.storage.provider) {
+        throw new Error('The media intent belongs to another storage provider.')
+      }
+      await this.storage.delete(deletion.storageKey)
+      await this.repository.markMediaObjectDeleted(intent.id)
+    } catch (cleanupError) {
+      this.logger.error(
+        `Media cleanup remains pending for intent ${intent.id}.`,
+        cleanupError instanceof Error ? cleanupError.stack : undefined,
+      )
     }
   }
 
@@ -556,6 +606,12 @@ function toLectureView(context: LectureContext): LectureView {
     status: context.lecture.status,
     publishedAt: context.lecture.publishedAt?.toISOString() ?? null,
     audio: context.audio ? toAudioView(context.audio, context.dataSaver) : null,
+    mediaDeletion: context.mediaDeletion
+      ? {
+          requestedAt: context.mediaDeletion.createdAt.toISOString(),
+          completedAt: context.mediaDeletion.completedAt?.toISOString() ?? null,
+        }
+      : null,
   }
 }
 

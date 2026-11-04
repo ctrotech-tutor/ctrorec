@@ -1,6 +1,6 @@
 # Lecture creation and resumable upload protocol
 
-Status: implemented and tested locally on 2026-11-01. This document describes the current single-instance staging design, not a multi-instance production certification.
+Status: implemented and tested locally through Phase 8A.2 on 2026-11-04. Resumable staging has scheduled reconciliation and a tested shared-local-filesystem instance-replacement path; original/derivative writes have durable lifecycle intents and worker reconciliation. This is not production shared-filesystem, abrupt-crash, backup/restore, or durable-object-storage certification; see `docs/upload-durability.md`.
 
 ## Lecturer workflow
 
@@ -46,23 +46,26 @@ Session responses contain identifiers, filenames, sizes, checksum, status, and e
 3. If a previous attempt left a part file without committing its offset, an identical retry reuses it; different content replaces that uncommitted orphan. A committed offset is never overwritten through the protocol.
 4. Completion requires `receivedBytes == byteSize`, reads every expected part in order, and rejects missing or truncated parts.
 5. The assembled file must match the declared SHA-256 and pass media inspection. WAV/M4A/MP3 use signatures; EBML/Ogg/MP4-family input also requires FFprobe to find audio and reject video. Inspection is not malware scanning or full stream decode validation.
-6. The existing audio finalizer stores the original, then commits original metadata, optional capture provenance, derivative state, pg-boss job, and session completion in one transaction. Failure invokes the existing storage compensation path.
-7. Repeating completion is safe: a completed session returns the attached lecture only when its original checksum matches. Checksum/signature failures and conflicting completion cancel the incomplete session rather than leaving an unusable active upload.
+6. The audio finalizer creates a unique `pending` original-write intent, saves and verifies the object, then commits intent attachment, original metadata, optional capture provenance, derivative state, pg-boss job, and session completion in one transaction.
+7. Failure changes the intent to `deleting` before idempotent storage compensation. Lost provider responses and process-left pending/deleting states are retried through worker reconciliation; unique keys prevent one completion attempt from deleting another attempt's object.
+8. Repeating completion is safe: a completed session returns the attached lecture only when its original checksum matches. Checksum/signature failures and conflicting completion cancel the incomplete session rather than leaving an unusable active upload.
 
 Original publication and playback remain independent of the derivative worker. The older single-request multipart endpoint remains for compatibility and integration coverage; the current browser uses resumable sessions.
 
 ## Current limits and production gates
 
-- **Single-instance staging:** chunk parts live under `AUDIO_UPLOAD_TEMP_DIR`. Multiple API instances require shared transactional staging or strictly sticky routing plus a failure/recovery design. The Cloudinary object adapter does not distribute these local upload sessions.
-- **Lazy expiry:** expired sessions are marked and cleaned when session activity occurs. There is no independent janitor for every abandoned directory yet. Add scheduled reconciliation before production rather than assuming expiry is a storage guarantee.
+- **Shared staging requirement:** chunk parts live under `AUDIO_UPLOAD_TEMP_DIR`. Multiple API instances must mount the same POSIX-compatible shared filesystem with atomic rename and coherent metadata, backed by the same PostgreSQL database. Separate instance-local directories and sticky routing alone do not provide recovery. The Cloudinary object adapter does not distribute these upload sessions. The local two-instance test does not certify NFS/EFS or abrupt crash/failover behavior.
+- **Reconciliation:** API startup and 15-minute scheduled runs expire rows in bounded `SKIP LOCKED` batches, retain active sessions, quarantine terminal paths after five minutes, and clean stale unknown/orphan paths after 24 hours. Worker media reconciliation processes stale pending/deleting intents after a 30-minute default grace with reference checks and idempotent deletion. See `docs/upload-durability.md` for exact decisions and limits.
 - **Rate budget:** the 256 MiB default maximum requires at most 64 chunks at 4 MiB, plus hashing, status, completion, and other API requests. Review the default throttler and shared-NAT behavior before large real uploads; do not simply disable rate limiting.
 - **Durability:** a completed original is only as durable as the selected `AudioStorage`. The local adapter is development/test-only.
 - **Scope:** browser `MediaRecorder` capture and recoverable local drafts are implemented in Phase 7A. Background capture, an offline upload queue, original replacement, and offline playback are not implemented or claimed. Local draft recovery is best-effort and does not guarantee recovery after browser/OS termination; see `docs/lecture-capture.md`.
-- **Provider lifecycle:** lost provider responses and abandoned provider objects require reconciliation evidence. An upload API response alone does not prove every remote object or backup was deleted.
+- **Provider lifecycle:** durable intents cover new original/derivative writes and backfilled database references. The reconciler does not list provider inventories, discover pre-ledger orphans, restore missing referenced media, or prove deletion from backups/CDN caches. Live provider behavior and intentional retention/deletion remain evidence gates.
 
 ## Executable evidence
 
 - Real PostgreSQL/HTTP tests cover lecture creation/editing, same-file idempotent creation, cross-course denial, multi-chunk upload, stale offsets, session recovery, cancellation, checksum cleanup, repeated completion, and byte-identical playback.
-- Filesystem unit tests cover orphan-chunk reconciliation and incomplete assembly cleanup.
+- Filesystem unit tests cover orphan-chunk reconciliation, incomplete assembly cleanup, and atomic concurrent quarantine.
+- Real PostgreSQL/HTTP tests replace the API instance between chunks and resume through a second instance sharing the database/staging root. Another test retains active data while reconciling expired, unknown, stale multipart, and interrupted-quarantine paths.
+- Real PostgreSQL/filesystem media tests cover grace retention, orphan and partial-write deletion, referenced-object preservation, provider mismatch, delete retry, and a reconciliation race that rolls back the competing reference transaction. A disposable-database check verifies attached-intent backfill for pre-migration media rows.
 - Production Chromium creates and edits a lecture, aborts a later chunk request once, recovers automatically, publishes, and decodes/seeks/plays original and data-saver audio through the real worker. The same journey uses real `MediaRecorder` with deterministic fake audio, pause/resume, local review, reload recovery, resumable WebM handoff, and a smaller worker-produced derivative.
-- Real carrier interruptions, full-length recordings, low-storage phones, process crashes, shared hosting, and multi-instance recovery remain field/infrastructure tests.
+- Real carrier interruptions, full-length recordings, low-storage phones, abrupt process/host crashes, production shared-filesystem behavior, and storage failover remain field/infrastructure tests.

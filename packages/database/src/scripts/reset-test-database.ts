@@ -36,6 +36,7 @@ async function main(): Promise<void> {
         lecture_audio_derivatives,
         lecture_audio_captures,
         lecture_audio_uploads,
+        media_object_intents,
         lecture_audio,
         lectures,
         enrollments,

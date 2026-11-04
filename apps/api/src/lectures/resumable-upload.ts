@@ -77,6 +77,25 @@ export async function stageUploadChunk(
   }
 }
 
+export async function quarantineUploadPath(
+  root: string,
+  sourcePath: string,
+): Promise<boolean> {
+  const trash = join(root, 'trash')
+  await mkdir(trash, { recursive: true })
+  const quarantinedPath = join(trash, `${randomUUID()}.delete`)
+  try {
+    await rename(sourcePath, quarantinedPath)
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return false
+    }
+    throw error
+  }
+  await rm(quarantinedPath, { recursive: true, force: true })
+  return true
+}
+
 export async function assembleUpload(
   directory: string,
   destinationPath: string,

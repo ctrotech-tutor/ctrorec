@@ -23,9 +23,13 @@ Dependencies are locked. Node and pnpm versions are pinned in `.nvmrc` and `pack
 - **Phase 6C — self-service account recovery:** implemented locally. Account owners can request a generic anti-enumeration recovery email and use a 15-minute, single-use fragment link. The API persists only request IDs/hashes, the worker rotates tokens across SMTP retries, and reset transactionally revokes other links and existing sessions without signing in or changing verification/memberships. Credential-version snapshots close reset-versus-sign-in races. A real loopback SMTP catcher verifies the production browser journey; external delivery is unclaimed. Invitation delivery remains manual. See `docs/account-recovery.md`.
 - **Phase 7A — lecturer browser capture:** implemented locally. Assigned lecturers can explicitly attest recording permission, capture audio with runtime-detected `MediaRecorder`, pause/resume, review a local draft, and hand it to the existing resumable protected upload. IndexedDB preserves committed chunks across an ordinary reload, while interrupted-draft recovery is explicit and loss-aware. The original keeps capture provenance separate from derivative metadata. Production Chromium exercises the real recorder with deterministic fake audio, reload recovery, original playback, and a smaller data-saver derivative. See `docs/lecture-capture.md`; physical microphones, background behavior, and real-device recovery remain unclaimed.
 - **Phase 7B — field-evidence instrumentation:** implemented locally. Browser captures carry a visible correlation UUID plus measured hashing/upload timing and recovered chunk-retry counts. A fresh-admin, tenant-scoped CSV export joins those values to server original/derivative outcomes with UTC date filters, a 5,000-row bound, and spreadsheet-injection protection. `docs/field-pilot.md` and its blank session sheet define the consented real-hall/device/carrier/listening protocol. No physical pilot has run, and no automatic student-playback, radio-byte, battery, cost, or device-fingerprint telemetry is claimed.
-- **Next — live evidence and production hardening:** execute the approved field protocol, run `docs/media-evidence.md` and the isolated Cloudinary evidence flow, and verify external SMTP/deliverability before enabling production recovery. Local resumable staging is single-instance; durable production storage and multi-instance upload staging remain evidence gates.
+- **Phase 8A.1 — upload staging durability:** implemented locally. Scheduled reconciliation expires sessions in bounded `SKIP LOCKED` batches and conservatively cleans terminal, orphaned, and interrupted-quarantine paths. A real two-instance HTTP test resumes and completes one upload through a replacement API sharing the database and local staging root. Production shared-filesystem/failover behavior, abrupt crashes, and durable original storage remain unclaimed. See `docs/upload-durability.md`.
+- **Phase 8A.2 — media lifecycle reconciliation:** implemented locally. Original and derivative writes now use unique per-attempt keys and durable PostgreSQL intents. Reference rows and `attached` states commit atomically; failed/lost-response writes enter durable compensation, and the worker reconciles stale pending/deleting intents with reference checks and idempotent deletion. Real tests cover orphan/partial-file cleanup, referenced-object preservation, provider mismatch, retry, and a competing-commit race. Pre-ledger orphan discovery, abrupt infrastructure crashes, and production provider behavior remain open. See `docs/upload-durability.md`.
+- **Phase 8B.1 — snapshot-consistent backup/restore drill:** implemented locally. A read-only exported PostgreSQL snapshot coordinates custom-format `pg_dump`, attached original/derivative copies, migration/reference checks, and a manifest-linked completion marker. The guarded drill verifies every checksum, refuses non-empty targets, restores the database in one transaction, and re-reads restored media. Real tests cover concurrent commits, corruption, interrupted copies, transient-state exclusions, and unexpected target relations. Queue jobs and upload-session data are deliberately excluded; production scheduling/off-site storage, live-provider recovery, pending-work requeue, cutover, RPO/RTO, and full application failover remain open. See `docs/backup-restore.md`.
+- **Phase 8B.2 — intentional media deletion:** implemented locally. Fresh tenant administrators can place/release reasoned retention holds and confirm lecture-media deletion with `DELETE MEDIA`. One lecture-locked transaction snapshots original metadata, revokes original/derivative access, expires active uploads, and links every known media intent to a durable deletion request. Retryable reconciliation preserves attachment history and sets completion only after all linked objects are deleted; later uploads/intents and stale derivative attachment are rejected. Lecture/capture evidence remains, and the admin CSV records deletion timestamps without deleted media metadata. Real HTTP, race/retry, filesystem, and Chromium tests cover the workflow. Live-provider/CDN/backup erasure, pre-ledger discovery, bulk deletion, and production legal/producer certification remain open. See `docs/media-retention.md`.
+- **Next — live recovery and field evidence:** prove production storage, the intended staging filesystem, live-provider deletion/recovery, and an isolated end-to-end recovery before real institutional recordings. Execute the approved field protocol and verify external SMTP/deliverability before those production rollouts.
 
-There is no public registration. Original-audio replacement/versioning, approved durable production media storage, multi-instance upload staging, offline playback, invitation email delivery, transcription, and AI processing are not implemented yet. The session model reserves MFA state but does not provide an MFA flow. The local filesystem audio adapter is for development/testing only.
+There is no public registration. Original-audio replacement/versioning, approved durable production media storage, production-certified shared upload staging, offline playback, invitation email delivery, transcription, and AI processing are not implemented yet. The session model reserves MFA state but does not provide an MFA flow. The local filesystem audio adapter is for development/testing only.
 
 ## Brand
 
@@ -33,7 +37,7 @@ The product name is lowercase `ctrorec`. Production vector/PNG masters and usage
 
 ## Start locally
 
-Requirements: Node 26.13+, pnpm 12.16+, FFmpeg and FFprobe (including local/browser integration tests), and Docker with Compose.
+Requirements: Node 26.13+, pnpm 12.16+, FFmpeg and FFprobe (including local/browser integration tests), and Docker with Compose. Backup creation/drills additionally require PostgreSQL 18 `pg_dump` and `pg_restore` client tools.
 
 ```sh
 npm install --global pnpm@12.16.1
@@ -62,35 +66,46 @@ The idempotent seed creates fictional people and academic records only:
 
 These credentials are deliberately public development fixtures. Never reuse them for a real account. The seed refuses `NODE_ENV=production` and only backfills a missing development credential hash; it does not overwrite an existing password hash.
 
+For a prioritized local verification pass—with setup, expected results, full lifecycle workflows, and explicit evidence limits—follow `docs/manual-acceptance.md`.
+
 ## Configuration
 
-| Variable                      | Purpose                                                                                        |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                | Standard PostgreSQL connection string used by migrations, API, seed, and worker                |
-| `TEST_DATABASE_URL`           | Separate integration database; its name must end in `_test`                                    |
-| `WEB_ORIGIN`                  | Exact browser origin trusted for CORS and credentialed CSRF-sensitive writes                   |
-| `AUTH_COOKIE_SECURE`          | Defaults to `true`; keep it enabled in production and HTTPS deployments                        |
-| `API_PROXY_TARGET`            | Server-only API origin used by the production Start proxy; defaults to `http://127.0.0.1:3001` |
-| `API_TRUST_PROXY_HOPS`        | Exact trusted proxy hops in front of Nest; defaults to `0`                                     |
-| `API_DOCS_ENABLED`            | Enables local OpenAPI UI when `true`; defaults to `false`                                      |
-| `AUDIO_STORAGE_PROVIDER`      | `local` by default; `cloudinary` is an evidence-gated candidate                                |
-| `AUDIO_STORAGE_ROOT`          | Local-development audio object root; defaults to `../../.data/audio`                           |
-| `AUDIO_UPLOAD_TEMP_DIR`       | Multipart/resumable staging directory; defaults to `../../.data/uploads`                       |
-| `AUDIO_MAX_UPLOAD_BYTES`      | Per-file upload limit; defaults to 268435456 bytes (256 MiB)                                   |
-| `AUDIO_UPLOAD_CHUNK_BYTES`    | Resumable chunk size; defaults to 4194304 bytes (4 MiB)                                        |
-| `AUDIO_UPLOAD_SESSION_TTL_MS` | Upload-session lifetime; defaults to 86400000 (24 hours)                                       |
-| `CLOUDINARY_FOLDER`           | Provider namespace; defaults to `ctrorec`; use isolated environment-specific names             |
-| `CLOUDINARY_URL`              | Server-only provider credentials; required only when Cloudinary is selected                    |
-| `FFMPEG_BIN`                  | Worker FFmpeg executable; defaults to `ffmpeg`                                                 |
-| `FFPROBE_BIN`                 | API container/audio-stream inspector; defaults to `ffprobe`                                    |
-| `MEDIA_TEMP_DIR`              | Worker-only source/staging directory; defaults to `../../.data/processing`                     |
-| `MEDIA_PROCESSING_TIMEOUT_MS` | Per-attempt derivative processing bound; defaults to 1800000 (30 minutes)                      |
-| `RECOVERY_EMAIL_ENABLED`      | Enables worker SMTP delivery; defaults to `false`                                              |
-| `RECOVERY_SMTP_URL`           | Worker-only `smtp://`/`smtps://` credential URL; required when delivery is enabled             |
-| `RECOVERY_EMAIL_FROM`         | Authorized sender; defaults to development-only `no-reply@localhost`                           |
-| `RECOVERY_WEB_ORIGIN`         | Public web origin used in recovery links; defaults to `http://localhost:3000`                  |
-| `RECOVERY_SMTP_*_TIMEOUT_MS`  | Connection/greeting/socket bounds; default to 10000/10000/30000 milliseconds                   |
-| `RECOVERY_SMTP_IGNORE_TLS`    | Defaults to `false`; use `true` only for the local test catcher, never production              |
+| Variable                              | Purpose                                                                                        |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                        | Standard PostgreSQL connection string used by migrations, API, seed, and worker                |
+| `TEST_DATABASE_URL`                   | Separate integration database; its name must end in `_test`                                    |
+| `WEB_ORIGIN`                          | Exact browser origin trusted for CORS and credentialed CSRF-sensitive writes                   |
+| `AUTH_COOKIE_SECURE`                  | Defaults to `true`; keep it enabled in production and HTTPS deployments                        |
+| `API_PROXY_TARGET`                    | Server-only API origin used by the production Start proxy; defaults to `http://127.0.0.1:3001` |
+| `API_TRUST_PROXY_HOPS`                | Exact trusted proxy hops in front of Nest; defaults to `0`                                     |
+| `API_DOCS_ENABLED`                    | Enables local OpenAPI UI when `true`; defaults to `false`                                      |
+| `AUDIO_STORAGE_PROVIDER`              | `local` by default; `cloudinary` is an evidence-gated candidate                                |
+| `AUDIO_STORAGE_ROOT`                  | Local-development audio object root; defaults to `../../.data/audio`                           |
+| `AUDIO_UPLOAD_TEMP_DIR`               | Multipart/resumable staging directory; defaults to `../../.data/uploads`                       |
+| `AUDIO_MAX_UPLOAD_BYTES`              | Per-file upload limit; defaults to 268435456 bytes (256 MiB)                                   |
+| `AUDIO_UPLOAD_CHUNK_BYTES`            | Resumable chunk size; defaults to 4194304 bytes (4 MiB)                                        |
+| `AUDIO_UPLOAD_SESSION_TTL_MS`         | Upload-session lifetime; defaults to 86400000 (24 hours)                                       |
+| `AUDIO_UPLOAD_RECONCILIATION_ENABLED` | Enables scheduled staging expiry/cleanup; defaults to `true`                                   |
+| `AUDIO_UPLOAD_RECONCILE_INTERVAL_MS`  | Staging reconciliation interval; defaults to 900000 (15 minutes)                               |
+| `CLOUDINARY_FOLDER`                   | Provider namespace; defaults to `ctrorec`; use isolated environment-specific names             |
+| `CLOUDINARY_URL`                      | Server-only provider credentials; required only when Cloudinary is selected                    |
+| `FFMPEG_BIN`                          | Worker FFmpeg executable; defaults to `ffmpeg`                                                 |
+| `FFPROBE_BIN`                         | API container/audio-stream inspector; defaults to `ffprobe`                                    |
+| `MEDIA_TEMP_DIR`                      | Worker-only source/staging directory; defaults to `../../.data/processing`                     |
+| `MEDIA_PROCESSING_TIMEOUT_MS`         | Per-attempt derivative processing bound; defaults to 1800000 (30 minutes)                      |
+| `MEDIA_RECONCILIATION_ENABLED`        | Enables worker media-intent reconciliation; defaults to `true`                                 |
+| `MEDIA_RECONCILE_INTERVAL_MS`         | Media reconciliation interval; defaults to 900000 (15 minutes)                                 |
+| `MEDIA_RECONCILE_GRACE_MS`            | Minimum pending/deleting intent age; defaults to 1800000 (30 minutes)                          |
+| `QUEUE_SCHEMA`                        | pg-boss schema; defaults to `pgboss` and is excluded from logical backups                      |
+| `BACKUP_ROOT`                         | Manual backup bundle parent; defaults to `../../.data/backups`                                 |
+| `PG_DUMP_BIN` / `PG_RESTORE_BIN`      | PostgreSQL 18 backup/restore executables; default to `pg_dump` / `pg_restore`                  |
+| `BACKUP_RESTORE_*`                    | Drill-only empty target URL/root and exact acknowledgement; no safe defaults                   |
+| `RECOVERY_EMAIL_ENABLED`              | Enables worker SMTP delivery; defaults to `false`                                              |
+| `RECOVERY_SMTP_URL`                   | Worker-only `smtp://`/`smtps://` credential URL; required when delivery is enabled             |
+| `RECOVERY_EMAIL_FROM`                 | Authorized sender; defaults to development-only `no-reply@localhost`                           |
+| `RECOVERY_WEB_ORIGIN`                 | Public web origin used in recovery links; defaults to `http://localhost:3000`                  |
+| `RECOVERY_SMTP_*_TIMEOUT_MS`          | Connection/greeting/socket bounds; default to 10000/10000/30000 milliseconds                   |
+| `RECOVERY_SMTP_IGNORE_TLS`            | Defaults to `false`; use `true` only for the local test catcher, never production              |
 
 If a local plain-HTTP browser does not accept Secure cookies on `localhost`, set `AUTH_COOKIE_SECURE=false` only in the local environment. Do not carry that override into a deployed environment.
 
@@ -100,34 +115,40 @@ Only set `API_TRUST_PROXY_HOPS` after configuring the proxy chain and network ac
 
 Local audio is written beneath `.data/`, which is Git-ignored. MP3/WAV/M4A checks include container signatures; WebM/Ogg/MP4-family uploads also require FFprobe to identify an audio stream and reject video. These checks are not malware scanning, full decode validation, or lecture-hall quality validation. Do not use the local adapter as durable or multi-instance production storage; see `docs/media-storage.md` for the provider gates and Cloudinary assessment.
 
-Resumable upload chunks are staged beneath `AUDIO_UPLOAD_TEMP_DIR` and require fresh lecturer authorization on every status/chunk/completion request. Completion rechecks the assembled file and joins original metadata, derivative state, queue job, and session completion in one transaction. The local staging directory is not shared storage: multiple API instances need a shared staging design or sticky routing before production use. See `docs/lecture-uploads.md`.
+Resumable upload chunks are staged beneath `AUDIO_UPLOAD_TEMP_DIR` and require fresh lecturer authorization on every status/chunk/completion request. Completion rechecks the assembled file, records a unique original-write intent before storage save/verify, and joins intent attachment, original metadata, derivative state, queue job, and session completion in one transaction. Scheduled reconciliation expires sessions and conservatively cleans terminal/orphaned paths. Multiple API instances require the same PostgreSQL database and one POSIX-compatible shared staging filesystem with atomic rename and coherent metadata; separate instance-local directories are not sufficient. A local two-instance replacement path is tested, but production network filesystems and abrupt failover remain evidence gates. See `docs/lecture-uploads.md` and `docs/upload-durability.md`.
 
 Cloudinary can be selected consistently for API and worker with `AUDIO_STORAGE_PROVIDER=cloudinary`. Nest keeps provider credentials and short-lived signed download URLs server-side. The adapter is only a candidate; run the synthetic evidence command in `docs/media-storage.md` and the application authorization/field gates before adoption. Never commit `CLOUDINARY_URL`.
 
-Data-saver processing runs only in the worker. The original row, optional capture-provenance row, derivative row, and queue job use one PostgreSQL transaction through pg-boss's Drizzle adapter. The worker verifies source integrity, stages output outside public storage, and marks a derivative ready only after object verification. Ordinary originals use 48 kbit/s; already-compressed WebM/Ogg and low-bitrate captures use 32 kbit/s so the derivative is not routinely larger than an Opus/AAC original. A derivative that fails or is not smaller remains unavailable while the original stays playable. See `docs/media-evidence.md` before treating the encoding profile as accepted.
+Data-saver processing runs only in the worker. The original-write intent attachment, original row, optional capture-provenance row, derivative row, and queue job use one PostgreSQL transaction through pg-boss's Drizzle adapter. The worker verifies source integrity, stages output outside public storage, creates a unique derivative-write intent before saving, and attaches that intent in the same transaction that marks the derivative ready after object verification. A scheduled worker reconciler preserves referenced objects and retries deletion of unreferenced pending/failed writes. It is a ledger-based cleanup mechanism, not a provider inventory scan or backup. Ordinary originals use 48 kbit/s; already-compressed WebM/Ogg and low-bitrate captures use 32 kbit/s so the derivative is not routinely larger than an Opus/AAC original. A derivative that fails or is not smaller remains unavailable while the original stays playable. See `docs/media-evidence.md` before treating the encoding profile as accepted.
+
+Backup creation is an explicit operator command, not a scheduled background service. It coordinates one exported PostgreSQL snapshot with attached media copies and writes a checksummed completion marker only after all reads succeed. The restore command is intentionally limited to an empty `_restore_test` database and empty local storage target; it is not a production cutover tool. Queue jobs are not replayed, interrupted upload rows are excluded with their unavailable staging data, and pending derivative work requires a future recovery workflow. Follow `docs/backup-restore.md` for commands, failure handling, evidence, and production requirements.
+
+Intentional lecture-media deletion is an institution-admin operation, not a lecturer/student or public endpoint. Holds and release reasons are durable; deletion requires an exact confirmation, revokes course media access in PostgreSQL before physical reconciliation, and reports completion only after every linked intent is deleted. Capture provenance survives through its lecture relationship. The workflow does not erase historical backups or prove CDN/provider deletion. See `docs/media-retention.md` for endpoints, race semantics, evidence, and recovery review requirements.
 
 Account recovery is disabled until SMTP is explicitly configured. In that state the API remains generic and the worker discards queued requests without generating tokens or sending mail, so owners must request a new link after delivery is enabled. `RECOVERY_WEB_ORIGIN` must be the real public web origin and agree with `WEB_ORIGIN`. Never commit `RECOVERY_SMTP_URL`. Local browser tests use a loopback SMTP catcher; this is not external deliverability evidence. See `docs/account-recovery.md` for lifecycle, retry, throttling, session-revocation, and retention details.
 
 ## Commands
 
-| Command                                            | Purpose                                                                   |
-| -------------------------------------------------- | ------------------------------------------------------------------------- |
-| `pnpm dev`                                         | Run web, API, and worker                                                  |
-| `pnpm dev:web`                                     | Run only TanStack Start                                                   |
-| `pnpm dev:api`                                     | Build the database package, then run only NestJS API                      |
-| `pnpm dev:worker`                                  | Run only the queue worker                                                 |
-| `pnpm build:shared`                                | Build database and media packages required by applications                |
-| `pnpm check`                                       | Format check, lint, typecheck, unit tests, and builds                     |
-| `pnpm test:integration`                            | Run real-PostgreSQL academic, invitation, recovery, auth, and audio tests |
-| `pnpm test:e2e`                                    | Build/start production API, worker, and web; run browser tests            |
-| `pnpm --filter @ctrorec/media evidence:cloudinary` | Opt-in synthetic live provider evidence; uploads/deletes test objects     |
-| `pnpm db:generate`                                 | Generate a migration after schema changes                                 |
-| `pnpm db:check`                                    | Check migration consistency                                               |
-| `pnpm db:migrate`                                  | Apply reviewed migrations                                                 |
-| `pnpm db:seed`                                     | Idempotently seed local development data                                  |
-| `pnpm db:reset:test`                               | Reset only the guarded `_test` database                                   |
+| Command                                            | Purpose                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| `pnpm dev`                                         | Run web, API, and worker                                              |
+| `pnpm dev:web`                                     | Run only TanStack Start                                               |
+| `pnpm dev:api`                                     | Build the database package, then run only NestJS API                  |
+| `pnpm dev:worker`                                  | Run only the queue worker                                             |
+| `pnpm build:shared`                                | Build database and media packages required by applications            |
+| `pnpm check`                                       | Format check, lint, typecheck, unit tests, and builds                 |
+| `pnpm test:integration`                            | Run real-PostgreSQL database, API, worker, audio, and lifecycle tests |
+| `pnpm test:e2e`                                    | Build/start production API, worker, and web; run browser tests        |
+| `pnpm --filter @ctrorec/media evidence:cloudinary` | Opt-in synthetic live provider evidence; uploads/deletes test objects |
+| `pnpm db:generate`                                 | Generate a migration after schema changes                             |
+| `pnpm db:check`                                    | Check migration consistency                                           |
+| `pnpm db:migrate`                                  | Apply reviewed migrations                                             |
+| `pnpm db:seed`                                     | Idempotently seed local development data                              |
+| `pnpm db:reset:test`                               | Reset only the guarded `_test` database                               |
+| `pnpm backup:create`                               | Create a snapshot-consistent PostgreSQL/attached-media bundle         |
+| `pnpm backup:restore-drill <directory>`            | Restore only into an acknowledged empty guarded local target          |
 
-`pnpm test:e2e` migrates, resets, and seeds `TEST_DATABASE_URL`; it never resets `DATABASE_URL` and does not use the Vite development servers. Its uploaded objects live under Playwright's ignored `test-results` directory. A test-only `smtp-server` listens on loopback ports 2525/2526 so the built worker's real SMTP handoff and the emailed recovery link can be exercised without an external mailbox. Integration and browser resets also remove the test pg-boss schema so jobs cannot leak between fixtures. CI installs FFmpeg and runs formatting, lint, typechecks, unit tests, migration checks, both integration suites, builds, and Chromium tests on PostgreSQL 18.6.
+`pnpm test:e2e` migrates, resets, and seeds `TEST_DATABASE_URL`; it never resets `DATABASE_URL` and does not use the Vite development servers. Its uploaded objects live under Playwright's ignored `test-results` directory. A test-only `smtp-server` listens on loopback ports 2525/2526 so the built worker's real SMTP handoff and the emailed recovery link can be exercised without an external mailbox. Integration and browser resets also remove the test pg-boss schema so jobs cannot leak between fixtures. CI installs FFmpeg and PostgreSQL 18 client tools, then runs formatting, lint, typechecks, unit tests, migration checks, database/API/worker integration suites (including real backup/restore drills), builds, and Chromium tests on PostgreSQL 18.6.
 
 ## Production process smoke check
 
@@ -140,7 +161,7 @@ pnpm --dir apps/worker start
 pnpm --dir apps/web start
 ```
 
-The web start script uses `srvx` to serve `dist/client` and invoke TanStack Start's exported fetch handler in `dist/server/server.js`; running that JavaScript entry directly does not open a listener. This is a process check, not a deployment or a substitute for TLS, network policy, backups, and production secrets.
+The web start script uses `srvx` to serve `dist/client` and invoke TanStack Start's exported fetch handler in `dist/server/server.js`; running that JavaScript entry directly does not open a listener. This is a process check, not a deployment or a substitute for TLS, network policy, production secrets, or the separate recovery requirements in `docs/backup-restore.md`.
 
 ## Layout
 

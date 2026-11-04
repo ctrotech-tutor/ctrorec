@@ -21,6 +21,22 @@ const environmentSchema = z
       .min(1_000)
       .max(86_400_000)
       .default(1_800_000),
+    MEDIA_RECONCILIATION_ENABLED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+    MEDIA_RECONCILE_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(10_000)
+      .max(86_400_000)
+      .default(900_000),
+    MEDIA_RECONCILE_GRACE_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000)
+      .max(7 * 24 * 60 * 60 * 1000)
+      .default(1_800_000),
     QUEUE_SCHEMA: z
       .string()
       .regex(/^[a-z_][a-z0-9_]*$/)

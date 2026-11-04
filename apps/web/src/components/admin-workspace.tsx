@@ -21,6 +21,7 @@ import {
 } from '../lib/admin'
 import { courseKeys } from '../lib/lectures'
 import { AdminInvitations } from './admin-invitations'
+import { AdminMediaRetentionPanel } from './admin-media-retention'
 import { AdminRoster } from './admin-roster'
 import { CaptureEvidenceExport } from './capture-evidence-export'
 
@@ -48,6 +49,9 @@ export function AdminWorkspace({
     enabled: Boolean(institutionId),
   })
   const [rosterOfferingId, setRosterOfferingId] = useState<string | null>(null)
+  const [retentionOfferingId, setRetentionOfferingId] = useState<string | null>(
+    null,
+  )
   const queryClient = useQueryClient()
 
   if (!membership || !institutionId) {
@@ -67,6 +71,9 @@ export function AdminWorkspace({
 
   const rosterOffering = structure.data?.offerings.find(
     (offering) => offering.id === rosterOfferingId,
+  )
+  const retentionOffering = structure.data?.offerings.find(
+    (offering) => offering.id === retentionOfferingId,
   )
 
   return (
@@ -120,7 +127,14 @@ export function AdminWorkspace({
             data={structure.data}
             institutionId={institutionId}
             onRefresh={refreshStructure}
-            onRoster={setRosterOfferingId}
+            onRoster={(offeringId) => {
+              setRetentionOfferingId(null)
+              setRosterOfferingId(offeringId)
+            }}
+            onRetention={(offeringId) => {
+              setRosterOfferingId(null)
+              setRetentionOfferingId(offeringId)
+            }}
           />
           {rosterOffering ? (
             <AdminRoster
@@ -130,6 +144,19 @@ export function AdminWorkspace({
               offering={rosterOffering}
               structure={structure.data}
               onClose={() => setRosterOfferingId(null)}
+            />
+          ) : null}
+          {retentionOffering ? (
+            <AdminMediaRetentionPanel
+              key={retentionOffering.id}
+              institutionId={institutionId}
+              label={`${
+                structure.data.courses.find(
+                  (course) => course.id === retentionOffering.courseId,
+                )?.code ?? 'Course'
+              } · Section ${retentionOffering.section}`}
+              offeringId={retentionOffering.id}
+              onClose={() => setRetentionOfferingId(null)}
             />
           ) : null}
           {people.isError ? (
@@ -148,11 +175,13 @@ function AcademicSections({
   institutionId,
   onRefresh,
   onRoster,
+  onRetention,
 }: Readonly<{
   data: AcademicStructure
   institutionId: string
   onRefresh: () => Promise<void>
   onRoster: (offeringId: string) => void
+  onRetention: (offeringId: string) => void
 }>) {
   return (
     <div className="admin-sections">
@@ -295,6 +324,13 @@ function AcademicSections({
                 }
               />
               <div className="admin-record-actions">
+                <button
+                  className="button-link"
+                  onClick={() => onRetention(offering.id)}
+                  type="button"
+                >
+                  Media retention
+                </button>
                 <button
                   className="button-link"
                   onClick={() => onRoster(offering.id)}

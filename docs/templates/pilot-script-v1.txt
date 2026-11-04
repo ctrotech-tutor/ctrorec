@@ -1,0 +1,39 @@
+PILOT SCRIPT V1 — DATA, STORAGE, AND LECTURE ACCESS
+
+Coordinator note, not read aloud: Use the same text for every capture. At an ordinary teaching pace, the script takes approximately five minutes. Do not read these notes, the begin/end markers, or the scoring list. The script contains no student names or private lecture content.
+
+--- BEGIN SPOKEN TEXT ---
+
+Today we are connecting three practical ideas: capturing teaching, storing it faithfully, and making it easy to return to later. The central question is not whether a device can produce a sound file. It is whether a student can understand the teaching when they need it.
+
+Begin with the difference between data and information. A microphone receives sound and a recorder turns that sound into digital data. The resulting file becomes useful information when a listener can identify the speaker's explanation, follow the sequence of ideas, and hear the important terms correctly.
+
+Consider a short lecture about a database. If the word database becomes audible only as “data,” the file still contains sound, but part of the meaning has changed. If the phrase primary key is lost during a discussion of tables and records, a technical detail has disappeared. Clear recording therefore concerns meaning, not merely volume.
+
+The first file is called the original recording. It is the reference against which later copies are judged. An original should not be silently replaced by an edited or compressed version. When another file is produced from it, that file is a derivative. A smaller derivative may be called a data-saver copy because its purpose is to reduce the bytes delivered to the listener.
+
+A codec determines how audio is encoded and decoded. The sample rate describes how frequently sound is measured, while the bit rate describes how many bits are used per second. These numbers matter, but a higher bit rate does not rescue speech that was already obscured by distance, fan noise, or a turned-away microphone.
+
+File size also requires careful measurement. A byte is not a bit. Eight bits make one byte. At thirty-two kilobits per second, one hour of audio uses approximately fourteen point four megabytes before container overhead. At forty-eight kilobits per second, the corresponding estimate is twenty-one point six megabytes. These are planning estimates, not measurements of every network transfer.
+
+A checksum serves a different purpose. It allows a system to compare bytes and detect whether a stored or transferred file has changed. A matching checksum can confirm byte integrity. It cannot tell us whether a lecturer was understandable, whether a student heard a term, or whether a recording was pleasant to use.
+
+Now consider the network. Bandwidth concerns capacity: how much data can move in a period of time. Latency concerns delay: how long a request or response takes. Jitter describes variation in that delay. Buffering occurs when playback pauses because the next portion of audio is not yet available.
+
+Upload and download are different journeys. A lecturer uploads an original from a phone to the service. A student downloads or streams the original or derivative when listening. A successful upload does not measure the student's later connection, and a smaller derivative does not guarantee fewer stalls under every condition.
+
+Wi-Fi and a mobile carrier should therefore be recorded separately. Note the actual conditions rather than writing simply “good network” or “bad network.” A visible retry count may help explain an upload, but it does not count radio retransmissions or total bytes consumed.
+
+There is also a governance question. A database can store a lecture reference without storing the audio itself. Authorization determines which lecturer or enrolled student may reach a recording. An institutional administrator may manage retention without automatically receiving permission to play private teaching.
+
+Consent, retention, and deletion must have explicit meanings. Consent to record a scripted pilot is not permission for unrelated use. Retention explains why media is kept and when it will be reviewed. Deletion should distinguish removing course access from confirming that the stored objects were actually deleted.
+
+As you listen to the comparison samples, focus on ordinary teaching details. Listen for the words primary key, sample rate, checksum, bandwidth, latency, jitter, buffering, derivative, authorization, and retention. Notice whether numbers remain clear and whether sentences require extra effort to reconstruct.
+
+The goal is a trustworthy academic memory. The original preserves what was taught, a derivative can make access more economical, and the evidence must show where either one fails. Good measurement includes successful captures, interrupted captures, and inconclusive results. We should not discard a failure merely because it complicates the report.
+
+The practical test is simple: can the lecturer teach naturally, can the student hear and understand, and can the institution explain how the recording was handled? Technology supports those goals; it does not replace them.
+
+--- END SPOKEN TEXT ---
+
+Coordinator scoring list, not read aloud: database, data, primary key, tables, records, original recording, derivative, data-saver, codec, sample rate, bit rate, byte, bit, megabyte, checksum, bandwidth, latency, jitter, buffering, upload, download, Wi-Fi, mobile carrier, authorization, retention, deletion, consent, thirty-two kilobits, forty-eight kilobits, fourteen point four megabytes, twenty-one point six megabytes.

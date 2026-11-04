@@ -50,6 +50,7 @@ export default defineConfig({
         AUDIO_UPLOAD_TEMP_DIR: `${outputDirectory}/uploads`,
         AUDIO_UPLOAD_CHUNK_BYTES: '16384',
         MEDIA_TEMP_DIR: `${outputDirectory}/processing`,
+        MEDIA_RECONCILE_INTERVAL_MS: '10000',
         AUTH_COOKIE_SECURE: 'false',
         DATABASE_URL: testDatabaseUrl,
         TEST_DATABASE_URL: testDatabaseUrl,

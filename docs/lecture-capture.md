@@ -81,6 +81,6 @@ This is not evidence from a physical microphone, real hall, low-end phone, iOS S
 - Keep the tab active and upload soon; background capture is not guaranteed.
 - One original per lecture; no capture replacement/versioning.
 - Local IndexedDB and local API staging are not durable production backups.
-- Multi-instance resumable staging, abandoned-upload reconciliation, durable object storage, backup/restore, and deletion reconciliation remain production gates.
+- Local shared-staging instance replacement, abandoned-upload cleanup, ledger-based original/derivative write reconciliation, intentional deletion, and guarded backup/restore drills have executable coverage; see `docs/upload-durability.md`, `docs/media-retention.md`, and `docs/backup-restore.md`. Production shared-filesystem/failover behavior, abrupt infrastructure crashes, pre-ledger orphan discovery, durable object storage, live-provider deletion/recovery, off-site recovery, and deletion propagation into historical backups remain production gates.
 - Full-length storage/battery behavior and real-network upload consumption remain field measurements.
 - No transcript or generated resource is required for capture, recovery, upload, or playback.

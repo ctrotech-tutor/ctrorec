@@ -16,6 +16,16 @@ const environmentSchema = z
       .regex(/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/)
       .default('ctrorec'),
     AUDIO_UPLOAD_TEMP_DIR: z.string().min(1).default('../../.data/uploads'),
+    AUDIO_UPLOAD_RECONCILIATION_ENABLED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
+    AUDIO_UPLOAD_RECONCILE_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(60_000)
+      .max(86_400_000)
+      .default(900_000),
     FFPROBE_BIN: z.string().min(1).default('ffprobe'),
     AUDIO_MAX_UPLOAD_BYTES: z.coerce
       .number()

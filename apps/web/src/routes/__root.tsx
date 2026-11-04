@@ -6,6 +6,7 @@ import {
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { NotFoundPage } from '../components/not-found-page'
 import '../styles.css'
 
 interface RouterContext {
@@ -28,12 +29,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   }),
   headers: () => ({ 'Cache-Control': 'private, no-store' }),
   component: RootComponent,
+  notFoundComponent: RootNotFoundComponent,
 })
 
 function RootComponent() {
   return (
     <RootDocument>
       <Outlet />
+    </RootDocument>
+  )
+}
+
+function RootNotFoundComponent() {
+  return (
+    <RootDocument>
+      <NotFoundPage />
     </RootDocument>
   )
 }

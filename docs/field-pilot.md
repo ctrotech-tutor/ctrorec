@@ -1,8 +1,8 @@
 # Consented capture field pilot
 
-Status: Phase 7B runbook and telemetry implemented locally on 2026-11-04. No physical hall, phone, carrier, listening, cost, or production-storage result has been recorded.
+Status: Pilot execution pack updated on 2026-11-05 with the Phase 8B.2 deletion workflow. No physical hall, phone, carrier, listening, cost, or production-storage result has been recorded.
 
-Use this with `media-evidence.md` and `lecture-capture.md`. Start with scripted, consented speech—not a real student lecture.
+Use this with `media-evidence.md` and `lecture-capture.md`. Start with scripted, consented speech—not a real student lecture. If approval is not yet documented, complete `docs/templates/pilot-approval-request.md` and obtain the named decisions before recording.
 
 ## 1. Approve before recording
 
@@ -28,7 +28,24 @@ Do not put student names, private lecture content, access credentials, or recove
 
 “Not yet measured” is a status placeholder, not a result.
 
-## 2. Prepare comparable sessions
+## 2. Execute the first four-capture session
+
+Keep the first session small enough to preserve failures and complete cleanup properly. Use one hall, one lecturer phone, one student listening phone, and `docs/templates/pilot-script-v1.txt`. Assign a coordinator, lecturer, institution administrator, and at least one listener who did not write the script; one person may hold multiple roles only if the approval record says so.
+
+Each capture should last approximately five minutes. Keep the tab foregrounded, use the same script and normal teaching volume, and create a separate draft lecture for every row.
+
+| Capture            | Teaching action and position                 | Hall condition          | Upload connection             |
+| ------------------ | -------------------------------------------- | ----------------------- | ----------------------------- |
+| A — baseline       | Stationary at the lecturer's normal position | Typical fans/room noise | Campus or institutional Wi-Fi |
+| B — movement       | Walk naturally and turn toward the board     | Same as A               | Same as A                     |
+| C — distance       | Stationary at the back of the hall           | Same as A               | Same as A                     |
+| D — carrier repeat | Repeat A exactly                             | Same as A               | The intended mobile carrier   |
+
+Do not add screen-lock, call, low-storage, or disconnection scenarios to these first four captures. Run those as a separate interruption session only after A–D have been reviewed. If Wi-Fi or mobile data is unavailable, record the matrix as blocked rather than silently substituting a different condition.
+
+For every capture, complete the reference/handoff steps below. After all four uploads, conduct the randomized original/data-saver listening comparison, export server evidence, and only then perform the deletion/cleanup sequence. The pilot owner must ratify or replace the listening and recovery thresholds before reviewing scores.
+
+## 3. Prepare comparable sessions
 
 1. Use the same approved script and script version across the initial matrix.
 2. Assign non-identifying device and hall labels. Record actual model, OS/browser, microphone, teaching position, noise, and teaching action in the field sheet.
@@ -38,7 +55,7 @@ Do not put student names, private lecture content, access credentials, or recove
 
 Use `docs/templates/field-session-sheet.csv`. It is deliberately blank. One row corresponds to one capture reference; aggregate listener scores only after the listening protocol is complete.
 
-## 3. Capture and correlate
+## 4. Capture and correlate
 
 For each session:
 
@@ -52,7 +69,7 @@ For each session:
 
 Run short stationary/noise/position comparisons before interruption scenarios, and complete those before any full-length session. Change one intended variable at a time where practical.
 
-## 4. Export server evidence
+## 5. Export server evidence
 
 An active institution administrator opens **Administration → Capture evidence**, optionally chooses UTC dates, and downloads the CSV. The `to` date is inclusive. Exports are limited to 5,000 captures; narrow the date range if the API asks.
 
@@ -74,16 +91,26 @@ Join the field sheet and export on `capture_reference`. Investigate duplicates o
 | Original type, size, SHA-256, `server_recorded_at`               | Server-inspected original metadata and the transaction record time.                                                                                                                          |
 | Derivative status, attempts, size, processing time               | Last recorded processing outcome and worker timing where available. A failed/pending derivative has blank ready-size ratios.                                                                 |
 | Derivative ratio and bytes saved                                 | Derived only for a ready derivative from original/derivative byte sizes. Container overhead is included; delivered network bytes are not.                                                    |
+| Deletion request/completion timestamps                           | Record the institution-admin deletion workflow. After deletion, original/derivative fields sourced from removed media rows are blank; capture and lecture evidence remains.                  |
 
 Phase 7A capture rows created before handoff instrumentation may have blank hash/upload/retry fields. All three are either present together or absent together under the PostgreSQL constraint. Client timings and counts are operational attestations, not trusted server timestamps or security decisions.
 
+### Evidence-before-deletion sequence
+
+1. Download and register the pre-deletion capture CSV before requesting media deletion. It contains the original/derivative sizes and processing outcomes that become blank after media references are removed.
+2. If any capture needs further review, place a retention hold with a reason instead of deleting it. Release the hold only when the named owner approves the next action.
+3. For each approved pilot lecture, open **Administration → Course offerings → Media retention**, enter the deletion reason, and confirm `DELETE MEDIA`. Wait for **Media deleted**, not merely the initial request response.
+4. Confirm the lecturer/student course record shows deleted media with no player, download, recorder, or replacement upload. Record request/completion timestamps in the field sheet.
+5. Download the post-deletion capture CSV. Capture identifiers, lecture metadata, and deletion timestamps should remain; original/derivative fields from the removed rows should be blank.
+6. Remove any remaining local drafts and apply the approved retention procedure to downloaded audio, CSV exports, listening sheets, and field notes. Do not claim that this deletes historical backups or copies outside the administered system.
+
 ### Field-sheet-only fields
 
-Device/model, OS/browser, microphone, hall, teaching position/action, carrier, observed network conditions, battery/storage, interruption scenario, listener count, accuracy, listening effort, dropouts, and coordinator observations remain in the field sheet. ctrorec does not silently collect a user agent, device fingerprint, precise location, student identity, or carrier identifier.
+Device/model, OS/browser, microphone, hall, teaching position/action, carrier, observed network conditions, battery/storage, interruption scenario, listener count, accuracy, listening effort, dropouts, coordinator observations, pre/post-deletion export IDs, deletion timestamps, and local cleanup results remain in the field sheet. ctrorec does not silently collect a user agent, device fingerprint, precise location, student identity, or carrier identifier.
 
 The current export does not provide automatic student playback telemetry, total uploaded/retransmitted bytes, radio conditions, loudness, intelligibility, battery consumption, or monetary cost. Use the technical/listening/network protocols and actual bills/provider reports for those questions.
 
-## 5. Review without overstating
+## 6. Review without overstating
 
 - Compare like-for-like script, device, position, and condition groups; report sample counts and failures.
 - Separate original-audio problems from derivative processing and listening problems.

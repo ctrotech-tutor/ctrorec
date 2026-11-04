@@ -1,7 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { Server } from 'node:http'
 import { dirname, join } from 'node:path'
-import { readFile, readdir, rm } from 'node:fs/promises'
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  utimes,
+  writeFile,
+} from 'node:fs/promises'
 import {
   createDatabase,
   seedDevelopment,
@@ -18,7 +25,9 @@ import {
   lectureAudio,
   lectureAudioCaptures,
   lectureAudioDerivatives,
+  lectureAudioUploads,
   lectures,
+  mediaObjectIntents,
   memberships,
   users,
 } from '@ctrorec/database/schema'
@@ -37,6 +46,7 @@ import {
 } from 'vitest'
 import { AppModule } from '../src/app.module.js'
 import { configureApi } from '../src/configure-api.js'
+import { UploadReconciliationService } from '../src/lectures/upload-reconciliation.service.js'
 import { requireTestDatabaseUrl, resetDatabase } from './test-database.js'
 
 const lecturer = {
@@ -71,17 +81,7 @@ beforeEach(async () => {
   await rm(temporaryRoot, { recursive: true, force: true })
   await resetDatabase(db)
   await seedDevelopment(db)
-  app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: false,
-  })
-  configureApi(app, { shutdownHooks: false })
-  await app.listen(0, '127.0.0.1')
-  const server = app.getHttpServer() as Server
-  const address = server.address()
-  if (!address || typeof address === 'string') {
-    throw new Error('Expected the test API to listen on a TCP port.')
-  }
-  baseUrl = `http://127.0.0.1:${address.port}`
+  ;({ app, baseUrl } = await startTestApp())
 })
 
 afterEach(async () => {
@@ -151,6 +151,27 @@ describe('lecture audio walking skeleton', () => {
       )[0],
     )
     expect(derivative.sourceSha256).toBe(uploaded.audio?.sha256)
+    const original = required(
+      (
+        await db
+          .select()
+          .from(lectureAudio)
+          .where(eq(lectureAudio.lectureId, lecture.id))
+      )[0],
+    )
+    const intents = await db
+      .select()
+      .from(mediaObjectIntents)
+      .where(eq(mediaObjectIntents.lectureId, lecture.id))
+    expect(intents).toHaveLength(1)
+    expect(intents[0]).toMatchObject({
+      kind: 'original',
+      status: 'attached',
+      storageProvider: original.storageProvider,
+      storageKey: original.storageKey,
+      byteSize: original.byteSize,
+      sha256: original.sha256,
+    })
     const queued = await db.execute<{ id: string }>(
       sql`SELECT id FROM pgboss.job WHERE name = ${DATA_SAVER_JOB} AND id = ${derivative.id}`,
     )
@@ -1059,6 +1080,172 @@ describe('lecture audio walking skeleton', () => {
     ).toBe(404)
   })
 
+  it('resumes one shared upload after the API instance is replaced', async () => {
+    const cookie = cookieFrom(await signIn(lecturer))
+    const lecture = await seededLecture()
+    const wav = repeatPcmWav(await readFile(wavPath), 10)
+    const sha256 = createHash('sha256').update(wav).digest('hex')
+    const created = await api(`/api/lectures/${lecture.id}/audio/uploads`, {
+      method: 'POST',
+      cookie,
+      body: { fileName: 'lecture.wav', byteSize: wav.length, sha256 },
+    })
+    expect(created.status).toBe(201)
+    const upload = (await created.json()) as {
+      id: string
+      chunkSize: number
+    }
+    const firstChunk = wav.subarray(0, upload.chunkSize)
+    expect(
+      (
+        await api(`/api/lectures/${lecture.id}/audio/uploads/${upload.id}`, {
+          method: 'PATCH',
+          cookie,
+          body: firstChunk,
+          headers: {
+            'Content-Type': 'application/offset+octet-stream',
+            'Upload-Offset': '0',
+          },
+        })
+      ).status,
+    ).toBe(200)
+
+    await app.close()
+    ;({ app, baseUrl } = await startTestApp())
+
+    const recovered = await api(
+      `/api/lectures/${lecture.id}/audio/uploads/${upload.id}`,
+      { cookie },
+    )
+    expect(recovered.status).toBe(200)
+    expect(await recovered.json()).toMatchObject({
+      receivedBytes: firstChunk.length,
+      status: 'active',
+    })
+    for (
+      let offset = firstChunk.length;
+      offset < wav.length;
+      offset += upload.chunkSize
+    ) {
+      const chunk = wav.subarray(
+        offset,
+        Math.min(offset + upload.chunkSize, wav.length),
+      )
+      expect(
+        (
+          await api(`/api/lectures/${lecture.id}/audio/uploads/${upload.id}`, {
+            method: 'PATCH',
+            cookie,
+            body: chunk,
+            headers: {
+              'Content-Type': 'application/offset+octet-stream',
+              'Upload-Offset': String(offset),
+            },
+          })
+        ).status,
+      ).toBe(200)
+    }
+    const completed = await api(
+      `/api/lectures/${lecture.id}/audio/uploads/${upload.id}/complete`,
+      { method: 'POST', cookie },
+    )
+    expect(completed.status).toBe(200)
+    expect(await completed.json()).toMatchObject({
+      audio: { byteSize: wav.length, sha256 },
+    })
+    const original = await api(`/api/lectures/${lecture.id}/audio`, { cookie })
+    expect(original.status).toBe(200)
+    expect(Buffer.from(await original.arrayBuffer())).toEqual(wav)
+  })
+
+  it('reconciles expired and orphaned staging while retaining active uploads', async () => {
+    const cookie = cookieFrom(await signIn(lecturer))
+    const lecture = await seededLecture()
+    const wav = repeatPcmWav(await readFile(wavPath), 10)
+    const created = await api(`/api/lectures/${lecture.id}/audio/uploads`, {
+      method: 'POST',
+      cookie,
+      body: {
+        fileName: 'lecture.wav',
+        byteSize: wav.length,
+        sha256: createHash('sha256').update(wav).digest('hex'),
+      },
+    })
+    const upload = (await created.json()) as {
+      id: string
+      chunkSize: number
+    }
+    const chunk = wav.subarray(0, upload.chunkSize)
+    expect(
+      (
+        await api(`/api/lectures/${lecture.id}/audio/uploads/${upload.id}`, {
+          method: 'PATCH',
+          cookie,
+          body: chunk,
+          headers: {
+            'Content-Type': 'application/offset+octet-stream',
+            'Upload-Offset': '0',
+          },
+        })
+      ).status,
+    ).toBe(200)
+    const directory = join(uploadDirectory, 'sessions', upload.id)
+    const reconciler = app.get(UploadReconciliationService)
+
+    const activeResult = await reconciler.reconcile(
+      new Date(Date.now() + 6 * 60 * 1000),
+    )
+    expect(activeResult).toMatchObject({
+      expiredSessions: 0,
+      removedSessionDirectories: 0,
+      failures: 0,
+    })
+    expect(await readdir(directory)).toContain('0.part')
+
+    await db
+      .update(lectureAudioUploads)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(lectureAudioUploads.id, upload.id))
+    const expiredResult = await reconciler.reconcile()
+    expect(expiredResult).toMatchObject({
+      expiredSessions: 1,
+      removedSessionDirectories: 0,
+      failures: 0,
+    })
+    expect(await readdir(directory)).toContain('0.part')
+
+    const old = new Date(Date.now() - 25 * 60 * 60 * 1000)
+    const orphanDirectory = join(uploadDirectory, 'sessions', randomUUID())
+    await mkdir(orphanDirectory, { recursive: true })
+    await writeFile(join(orphanDirectory, '0.part'), 'orphaned')
+    await utimes(orphanDirectory, old, old)
+    const orphanRootFile = join(uploadDirectory, randomUUID())
+    await writeFile(orphanRootFile, 'orphaned multipart upload')
+    await utimes(orphanRootFile, old, old)
+    const staleQuarantine = join(uploadDirectory, 'trash', 'stale-delete')
+    await mkdir(staleQuarantine, { recursive: true })
+    await writeFile(join(staleQuarantine, 'payload'), 'interrupted cleanup')
+
+    const cleaned = await reconciler.reconcile(
+      new Date(Date.now() + 6 * 60 * 1000),
+    )
+    expect(cleaned).toMatchObject({
+      expiredSessions: 0,
+      removedSessionDirectories: 2,
+      removedRootFiles: 1,
+      removedQuarantinedPaths: 1,
+      failures: 0,
+    })
+    await expect(readdir(directory)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(readdir(orphanDirectory)).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
+    await expect(readFile(orphanRootFile)).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
+    expect(await readdir(join(uploadDirectory, 'trash'))).toEqual([])
+  })
+
   it('stops playback when the current enrollment ends', async () => {
     const lecturerCookie = cookieFrom(await signIn(lecturer))
     const studentCookie = cookieFrom(await signIn(student))
@@ -1102,6 +1289,23 @@ describe('lecture audio walking skeleton', () => {
     ).toEqual([])
   })
 })
+
+async function startTestApp(): Promise<{
+  app: NestExpressApplication
+  baseUrl: string
+}> {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: false,
+  })
+  configureApi(app, { shutdownHooks: false })
+  await app.listen(0, '127.0.0.1')
+  const server = app.getHttpServer() as Server
+  const address = server.address()
+  if (!address || typeof address === 'string') {
+    throw new Error('Expected the test API to listen on a TCP port.')
+  }
+  return { app, baseUrl: `http://127.0.0.1:${address.port}` }
+}
 
 function repeatPcmWav(source: Buffer, repetitions: number): Buffer {
   if (

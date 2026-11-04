@@ -15,6 +15,8 @@ describe('API environment', () => {
     expect(environment.QUEUE_SCHEMA).toBe('pgboss')
     expect(environment.AUDIO_STORAGE_PROVIDER).toBe('local')
     expect(environment.CLOUDINARY_FOLDER).toBe('ctrorec')
+    expect(environment.AUDIO_UPLOAD_RECONCILIATION_ENABLED).toBe(true)
+    expect(environment.AUDIO_UPLOAD_RECONCILE_INTERVAL_MS).toBe(900_000)
   })
 
   it('requires credentials when Cloudinary storage is selected', () => {

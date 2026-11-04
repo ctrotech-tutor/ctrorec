@@ -117,6 +117,42 @@ h1 {
   background: #a47a2c;
 }
 
+.not-found h1 {
+  max-width: 11ch;
+}
+
+.not-found-address {
+  border-block: 1px solid #d8ddd8;
+  display: grid;
+  gap: 8px;
+  margin: 32px 0 0;
+  max-width: 560px;
+  padding: 16px 0;
+}
+
+.not-found-address > span {
+  color: #53615b;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.not-found-address code {
+  color: #34443e;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.not-found-action {
+  align-items: center;
+  display: inline-flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-top: 28px;
+  text-decoration: none;
+}
+
 .api-status[data-state='error'] .status-mark {
   background: #ad4b32;
 }
@@ -1195,6 +1231,212 @@ h1 {
   text-decoration: none;
 }
 
+.retention-panel {
+  border-bottom: 1px solid #d8ddd8;
+  border-top: 2px solid #205346;
+  margin-top: 36px;
+  padding: 28px 0 12px;
+}
+
+.retention-panel h3,
+.retention-item h4 {
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.retention-list {
+  display: grid;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.retention-item {
+  border-top: 1px solid #aeb9b2;
+  padding-top: 16px;
+}
+
+.retention-item-heading {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  justify-content: space-between;
+}
+
+.retention-item-heading p {
+  color: #53615b;
+  font-size: 0.8rem;
+  margin: 5px 0 0;
+}
+
+.retention-status {
+  color: #205346;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.retention-status[data-state='held'],
+.retention-status[data-state='deleting'] {
+  color: #74551f;
+}
+
+.retention-status[data-state='deleted'] {
+  color: #7c352c;
+}
+
+.retention-metadata {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.retention-metadata > div {
+  display: grid;
+  gap: 2px 16px;
+}
+
+.retention-metadata dt {
+  color: #53615b;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.retention-metadata dd {
+  font-size: 0.82rem;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.retention-checksum {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.retention-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.retention-actions > details {
+  border-top: 1px solid #d8ddd8;
+  padding-top: 8px;
+}
+
+.retention-actions summary {
+  color: #205346;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 9px 0;
+}
+
+.retention-actions details[data-destructive='true'] summary {
+  color: #7c352c;
+}
+
+.retention-form {
+  display: grid;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.retention-form label {
+  color: #34443e;
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 650;
+  gap: 6px;
+}
+
+.retention-form input,
+.retention-form textarea {
+  background: #fbfcf9;
+  border: 1px solid #b9c3bd;
+  border-radius: 4px;
+  color: #1d2723;
+  font: inherit;
+  font-weight: 400;
+  padding: 9px 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.retention-form .secondary-button,
+.retention-form .danger-button {
+  justify-self: start;
+}
+
+.retention-form .form-error,
+.retention-form p {
+  margin: 0;
+}
+
+.retention-delete-form > p:first-child,
+.retention-notice {
+  color: #5b4a45;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.danger-button {
+  background: #7c352c;
+  border: 1px solid #7c352c;
+  border-radius: 4px;
+  color: #fffaf7;
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 46px;
+  padding: 10px 18px;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #61271f;
+}
+
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.retention-notice {
+  border-left: 3px solid #9a773a;
+  margin: 16px 0;
+  padding: 2px 0 2px 14px;
+}
+
+.retention-notice[data-tone='deletion'] {
+  border-left-color: #7c352c;
+}
+
+.retention-notice p {
+  margin: 6px 0;
+}
+
+.retention-notice .retention-form {
+  margin-top: 12px;
+  max-width: 560px;
+}
+
+.deleted-media-notice {
+  border-left: 3px solid #7c352c;
+  color: #4f403b;
+  margin-top: 16px;
+  padding: 4px 0 4px 14px;
+}
+
+.deleted-media-notice p {
+  font-size: 0.86rem;
+  line-height: 1.55;
+  margin: 7px 0 0;
+}
+
 @media (min-width: 680px) {
   .admin-sections,
   .roster-columns {
@@ -1203,5 +1445,13 @@ h1 {
 
   .admin-form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .retention-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .retention-metadata > div {
+    grid-template-columns: 150px minmax(0, 1fr);
   }
 }

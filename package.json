@@ -22,12 +22,14 @@
     "format:check": "prettier --check .",
     "test": "pnpm build:shared && pnpm --recursive --workspace-concurrency=1 --if-present test",
     "test:e2e": "pnpm --filter @ctrorec/web test:e2e",
-    "test:integration": "pnpm build:shared && pnpm --filter @ctrorec/database test:integration && pnpm --filter @ctrorec/api test:integration",
+    "test:integration": "pnpm build:shared && pnpm --filter @ctrorec/database test:integration && pnpm --filter @ctrorec/api test:integration && pnpm --filter @ctrorec/worker test:integration",
     "db:generate": "pnpm --filter @ctrorec/database db:generate",
     "db:migrate": "pnpm --filter @ctrorec/database db:migrate",
     "db:seed": "pnpm --filter @ctrorec/database db:seed",
     "db:reset:test": "pnpm --filter @ctrorec/database db:reset:test",
     "db:check": "pnpm --filter @ctrorec/database db:check",
+    "backup:create": "pnpm build:shared && pnpm --filter @ctrorec/worker build && pnpm --filter @ctrorec/worker backup:create",
+    "backup:restore-drill": "pnpm build:shared && pnpm --filter @ctrorec/worker build && pnpm --filter @ctrorec/worker backup:restore-drill",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {

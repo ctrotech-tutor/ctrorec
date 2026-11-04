@@ -5,6 +5,7 @@ import {
   lectureAudio,
   lectureAudioCaptures,
   lectureAudioDerivatives,
+  lectureMediaDeletions,
   lectures,
 } from '@ctrorec/database/schema'
 import { Inject, Injectable } from '@nestjs/common'
@@ -52,9 +53,11 @@ export class CaptureEvidenceRepository {
         derivativeProcessingStartedAt:
           lectureAudioDerivatives.processingStartedAt,
         derivativeCompletedAt: lectureAudioDerivatives.completedAt,
+        mediaDeletionRequestedAt: lectureMediaDeletions.createdAt,
+        mediaDeletionCompletedAt: lectureMediaDeletions.completedAt,
       })
       .from(lectureAudioCaptures)
-      .innerJoin(
+      .leftJoin(
         lectureAudio,
         and(
           eq(lectureAudio.lectureId, lectureAudioCaptures.lectureId),
@@ -66,6 +69,16 @@ export class CaptureEvidenceRepository {
         and(
           eq(lectures.id, lectureAudioCaptures.lectureId),
           eq(lectures.institutionId, lectureAudioCaptures.institutionId),
+        ),
+      )
+      .leftJoin(
+        lectureMediaDeletions,
+        and(
+          eq(lectureMediaDeletions.lectureId, lectureAudioCaptures.lectureId),
+          eq(
+            lectureMediaDeletions.institutionId,
+            lectureAudioCaptures.institutionId,
+          ),
         ),
       )
       .innerJoin(

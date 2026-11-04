@@ -21,6 +21,34 @@ test('the web shell connects to the API through the same-origin proxy', async ({
   await expect(page.getByTestId('api-status')).toHaveText('API connected')
 })
 
+test('unknown browser routes render the branded 404 without intercepting API errors', async ({
+  page,
+  request,
+}) => {
+  const response = await page.goto('/missing/lecture-archive')
+  expect(response?.status()).toBe(404)
+  await expect(page.getByRole('img', { name: 'ctrorec' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', {
+      name: 'This address isn’t in the lecture archive.',
+    }),
+  ).toBeVisible()
+  await expect(page.getByTestId('not-found-path')).toHaveText(
+    '/missing/lecture-archive',
+  )
+
+  const apiResponse = await request.get('/api/missing-endpoint')
+  expect(apiResponse.status()).toBe(404)
+  expect(apiResponse.headers()['content-type']).toContain('application/json')
+
+  await page.getByRole('link', { name: 'Return to ctrorec' }).click()
+  await expect(
+    page.getByRole('heading', {
+      name: 'Lecture access, built around the teaching.',
+    }),
+  ).toBeVisible()
+})
+
 test('a seeded lecturer can sign in, see membership, and sign out', async ({
   page,
 }) => {
@@ -299,8 +327,144 @@ test('a lecturer creates, edits, resumes, records, and publishes audio for stude
   await expectAudioToPlayAndSeek(audio)
 })
 
+test('an institution admin holds, releases, and deletes media with honest course states', async ({
+  page,
+}) => {
+  test.setTimeout(75_000)
+  const wav = repeatPcmWav(
+    await readFile(
+      new URL('../../api/test/fixtures/lecture.wav', import.meta.url),
+    ),
+    10,
+  )
+  await page.goto('/')
+  await signIn(page, 'lecturer@ctrorec.test', 'Lecturer-Dev-2026!')
+  const composer = page.locator('.lecture-composer')
+  await composer.getByLabel('Lecture title').fill('Retention governed lecture')
+  await composer.getByLabel('Lecture date and time').fill('2026-11-01T10:00')
+  await composer.getByRole('button', { name: 'Create lecture' }).click()
+  const created = page.locator('[data-lecture-id]').filter({
+    hasText: 'Retention governed lecture',
+  })
+  await expect(created).toBeVisible()
+  const lectureId = await created.getAttribute('data-lecture-id')
+  if (!lectureId) {
+    throw new Error('Expected the retention-test lecture identifier.')
+  }
+  const lecturerItem = page.locator(`[data-lecture-id="${lectureId}"]`)
+  await lecturerItem.getByRole('button', { name: 'Upload audio' }).click()
+  await lecturerItem.locator('input[type="file"]').setInputFiles({
+    name: 'retention.wav',
+    mimeType: 'audio/wav',
+    buffer: wav,
+  })
+  await lecturerItem.getByRole('button', { name: 'Upload recording' }).click()
+  await expect(lecturerItem.getByText('Original recording')).toBeVisible()
+  await lecturerItem
+    .getByRole('button', { name: 'Publish to enrolled students' })
+    .click()
+  await expect(
+    lecturerItem
+      .getByTestId(`lecture-quality-${lectureId}`)
+      .locator('option[value="data-saver"]'),
+  ).toHaveText(/^Data saver ·/, { timeout: 20_000 })
+
+  await page.getByRole('button', { name: 'Administration' }).click()
+  const offering = page
+    .getByRole('region', { name: 'Course offerings' })
+    .locator('.admin-record')
+    .filter({ hasText: 'CSC101' })
+  await offering.getByRole('button', { name: 'Media retention' }).click()
+  const panel = page.locator('.retention-panel')
+  const retentionItem = panel
+    .locator('.retention-item')
+    .filter({ hasText: 'Retention governed lecture' })
+  await expect(retentionItem).toBeVisible()
+  await retentionItem
+    .getByText('Place a retention hold', { exact: true })
+    .click()
+  await retentionItem
+    .getByLabel('Hold reason', { exact: true })
+    .fill('Browser evidence retention review')
+  await retentionItem
+    .getByRole('button', { name: 'Place hold', exact: true })
+    .click()
+  await expect(
+    retentionItem.getByText('Retention hold active', { exact: true }),
+  ).toBeVisible()
+  await retentionItem
+    .getByLabel('Release reason', { exact: true })
+    .fill('Browser evidence review completed')
+  await retentionItem
+    .getByRole('button', { name: 'Release hold', exact: true })
+    .click()
+  await expect(
+    retentionItem.getByText('Media available', { exact: true }),
+  ).toBeVisible()
+
+  await retentionItem
+    .getByText('Delete original and derivatives', { exact: true })
+    .click()
+  await retentionItem
+    .getByLabel('Deletion reason', { exact: true })
+    .fill('Approved browser deletion evidence')
+  const confirmation = retentionItem.getByLabel(
+    'Type DELETE MEDIA to confirm',
+    { exact: true },
+  )
+  await confirmation.fill('DELETE')
+  await expect(
+    retentionItem.getByRole('button', { name: 'Delete lecture media' }),
+  ).toBeDisabled()
+  await confirmation.fill('DELETE MEDIA')
+  await retentionItem
+    .getByRole('button', { name: 'Delete lecture media' })
+    .click()
+  await expect(
+    retentionItem.getByText(/Deletion in progress|Media deleted/, {
+      exact: true,
+    }),
+  ).toBeVisible()
+  await expect(
+    retentionItem.getByText('Media deleted', { exact: true }),
+  ).toBeVisible({ timeout: 20_000 })
+  await expect(
+    retentionItem.getByText(
+      'All linked media objects are recorded as deleted.',
+    ),
+  ).toBeVisible()
+  await expect(
+    retentionItem.getByText('Original retained as evidence', { exact: true }),
+  ).toBeVisible()
+
+  await page.getByRole('button', { name: 'Course lectures' }).click()
+  const deletedForLecturer = page.locator(`[data-lecture-id="${lectureId}"]`)
+  await expect(
+    deletedForLecturer.getByTestId(`deleted-media-${lectureId}`),
+  ).toContainText('Lecture media deleted')
+  await expect(deletedForLecturer.locator('audio')).toHaveCount(0)
+  await expect(
+    deletedForLecturer.getByRole('button', { name: 'Upload audio' }),
+  ).toHaveCount(0)
+  await expect(
+    deletedForLecturer.getByRole('button', { name: 'Record lecture' }),
+  ).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await signIn(page, 'student@ctrorec.test', 'Student-Dev-2026!')
+  const deletedForStudent = page.locator(`[data-lecture-id="${lectureId}"]`)
+  await expect(
+    deletedForStudent.getByTestId(`deleted-media-${lectureId}`),
+  ).toContainText('Lecture media deleted')
+  await expect(deletedForStudent.locator('audio')).toHaveCount(0)
+  await expect(
+    deletedForStudent.getByRole('link', { name: /Download/ }),
+  ).toHaveCount(0)
+})
+
 test('an institution admin creates structure and controls student roster access', async ({
   page,
+  browser,
 }) => {
   test.setTimeout(90_000)
   await page.goto('/')
@@ -389,43 +553,37 @@ test('an institution admin creates structure and controls student roster access'
     roster.locator('.roster-entry').filter({ hasText: 'Development Student' }),
   ).toBeVisible()
 
-  await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(
-    page.getByRole('heading', { name: 'Sign in to continue' }),
-  ).toBeVisible()
-  await signIn(page, 'student@ctrorec.test', 'Student-Dev-2026!')
-  await page
-    .getByRole('combobox', { name: 'Current course', exact: true })
-    .selectOption({ label: 'SCI101 · Section B' })
-  await expect(
-    page.getByText('SCI101 · Experimental Science', { exact: true }),
-  ).toBeVisible()
+  const studentContext = await browser.newContext({
+    baseURL: 'http://127.0.0.1:3000',
+  })
+  try {
+    const student = await studentContext.newPage()
+    await student.goto('/')
+    await signIn(student, 'student@ctrorec.test', 'Student-Dev-2026!')
+    await student
+      .getByRole('combobox', { name: 'Current course', exact: true })
+      .selectOption({ label: 'SCI101 · Section B' })
+    await expect(
+      student.getByText('SCI101 · Experimental Science', { exact: true }),
+    ).toBeVisible()
 
-  await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(
-    page.getByRole('heading', { name: 'Sign in to continue' }),
-  ).toBeVisible()
-  await signIn(page, 'lecturer@ctrorec.test', 'Lecturer-Dev-2026!')
-  await page.getByRole('button', { name: 'Administration' }).click()
-  await offering.getByRole('button', { name: 'Manage roster' }).click()
-  const studentEntry = page
-    .locator('.roster-entry')
-    .filter({ hasText: 'Development Student' })
-  await studentEntry.getByRole('button', { name: 'End access' }).click()
-  await expect(studentEntry.getByText(/closed/)).toBeVisible()
-  await expect(page.getByText('0 current', { exact: true })).toBeVisible()
-  await expect(
-    page.getByText('No student enrollments yet.', { exact: true }),
-  ).toHaveCount(0)
+    const studentEntry = roster
+      .locator('.roster-entry')
+      .filter({ hasText: 'Development Student' })
+    await studentEntry.getByRole('button', { name: 'End access' }).click()
+    await expect(studentEntry.getByText(/closed/)).toBeVisible()
+    await expect(roster.getByText('0 current', { exact: true })).toBeVisible()
+    await expect(
+      roster.getByText('No student enrollments yet.', { exact: true }),
+    ).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Sign out' }).click()
-  await expect(
-    page.getByRole('heading', { name: 'Sign in to continue' }),
-  ).toBeVisible()
-  await signIn(page, 'student@ctrorec.test', 'Student-Dev-2026!')
-  await expect(
-    page.getByText('SCI101 · Experimental Science', { exact: true }),
-  ).toHaveCount(0)
+    await student.reload()
+    await expect(
+      student.getByText('SCI101 · Experimental Science', { exact: true }),
+    ).toHaveCount(0)
+  } finally {
+    await studentContext.close()
+  }
 })
 
 test('an institution admin invites a person who accepts and signs in without public registration', async ({

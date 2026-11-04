@@ -69,6 +69,43 @@ export interface OfferingRoster {
   lecturers: LecturerRosterEntry[]
   students: StudentRosterEntry[]
 }
+export interface AdminMediaHold {
+  id: string
+  lectureId: string
+  reason: string
+  createdAt: string
+  releasedAt: string | null
+  releaseReason: string | null
+}
+export interface AdminMediaDeletion {
+  id: string
+  lectureId: string
+  reason: string
+  originalFileName: string
+  originalMediaType: string
+  originalByteSize: number
+  originalSha256: string
+  requestedAt: string
+  completedAt: string | null
+}
+export interface AdminRetentionLecture {
+  id: string
+  title: string
+  status: string
+  occurredAt: string
+  audio: {
+    originalFileName: string
+    mediaType: string
+    byteSize: number
+    sha256: string
+  } | null
+  activeHold: AdminMediaHold | null
+  deletion: AdminMediaDeletion | null
+}
+export interface AdminMediaRetention {
+  offeringId: string
+  lectures: AdminRetentionLecture[]
+}
 
 export interface UnitInput {
   code: string
@@ -105,6 +142,8 @@ export const adminKeys = {
     [...adminKeys.all, 'invitations', institutionId] as const,
   roster: (institutionId: string, offeringId: string) =>
     [...adminKeys.all, 'roster', institutionId, offeringId] as const,
+  retention: (institutionId: string, offeringId: string) =>
+    [...adminKeys.all, 'retention', institutionId, offeringId] as const,
 }
 
 export function adminAcademicOptions(institutionId: string) {
@@ -154,6 +193,68 @@ export function adminRosterOptions(institutionId: string, offeringId: string) {
     },
     retry: 1,
   })
+}
+
+export function adminMediaRetentionOptions(
+  institutionId: string,
+  offeringId: string,
+) {
+  return queryOptions({
+    queryKey: adminKeys.retention(institutionId, offeringId),
+    queryFn: async ({ signal }) => {
+      const value = await requestJson(
+        `${root(institutionId)}/offerings/${id(offeringId)}/media-retention`,
+        { signal },
+      )
+      if (!isMediaRetention(value)) {
+        throw new Error(
+          'The media-retention response did not match its contract.',
+        )
+      }
+      return value
+    },
+    retry: 1,
+  })
+}
+
+export function placeMediaHold(input: {
+  institutionId: string
+  lectureId: string
+  reason: string
+}): Promise<AdminMediaHold> {
+  return write(
+    `${root(input.institutionId)}/lectures/${id(input.lectureId)}/media-hold`,
+    'POST',
+    { reason: input.reason },
+    isMediaHold,
+  )
+}
+
+export function releaseMediaHold(input: {
+  institutionId: string
+  holdId: string
+  reason: string
+}): Promise<AdminMediaHold> {
+  return write(
+    `${root(input.institutionId)}/media-holds/${id(input.holdId)}/release`,
+    'POST',
+    { reason: input.reason },
+    isMediaHold,
+  )
+}
+
+export function requestMediaDeletion(input: {
+  institutionId: string
+  lectureId: string
+  reason: string
+  confirmation: string
+}): Promise<{ created: boolean; deletion: AdminMediaDeletion }> {
+  return write(
+    `${root(input.institutionId)}/lectures/${id(input.lectureId)}/media-deletion`,
+    'POST',
+    { reason: input.reason, confirmation: input.confirmation },
+    isMediaDeletionResponse,
+  )
 }
 
 export function saveUnit(input: {
@@ -409,6 +510,83 @@ function isRosterEntry(value: unknown): value is Record<string, unknown> & {
     typeof value.displayName === 'string' &&
     typeof value.email === 'string' &&
     (typeof value.endsAt === 'string' || value.endsAt === null)
+  )
+}
+
+function isMediaRetention(value: unknown): value is AdminMediaRetention {
+  return (
+    isRecord(value) &&
+    typeof value.offeringId === 'string' &&
+    Array.isArray(value.lectures) &&
+    value.lectures.every(isRetentionLecture)
+  )
+}
+
+function isRetentionLecture(value: unknown): value is AdminRetentionLecture {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.title === 'string' &&
+    typeof value.status === 'string' &&
+    typeof value.occurredAt === 'string' &&
+    (value.audio === null || isRetentionAudio(value.audio)) &&
+    (value.activeHold === null || isMediaHold(value.activeHold)) &&
+    (value.deletion === null || isMediaDeletion(value.deletion))
+  )
+}
+
+function isRetentionAudio(
+  value: unknown,
+): value is NonNullable<AdminRetentionLecture['audio']> {
+  return (
+    isRecord(value) &&
+    typeof value.originalFileName === 'string' &&
+    typeof value.mediaType === 'string' &&
+    typeof value.byteSize === 'number' &&
+    Number.isSafeInteger(value.byteSize) &&
+    value.byteSize > 0 &&
+    typeof value.sha256 === 'string' &&
+    /^[0-9a-f]{64}$/.test(value.sha256)
+  )
+}
+
+function isMediaHold(value: unknown): value is AdminMediaHold {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.lectureId === 'string' &&
+    typeof value.reason === 'string' &&
+    typeof value.createdAt === 'string' &&
+    (typeof value.releasedAt === 'string' || value.releasedAt === null) &&
+    (typeof value.releaseReason === 'string' || value.releaseReason === null)
+  )
+}
+
+function isMediaDeletion(value: unknown): value is AdminMediaDeletion {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.lectureId === 'string' &&
+    typeof value.reason === 'string' &&
+    typeof value.originalFileName === 'string' &&
+    typeof value.originalMediaType === 'string' &&
+    typeof value.originalByteSize === 'number' &&
+    Number.isSafeInteger(value.originalByteSize) &&
+    value.originalByteSize > 0 &&
+    typeof value.originalSha256 === 'string' &&
+    /^[0-9a-f]{64}$/.test(value.originalSha256) &&
+    typeof value.requestedAt === 'string' &&
+    (typeof value.completedAt === 'string' || value.completedAt === null)
+  )
+}
+
+function isMediaDeletionResponse(
+  value: unknown,
+): value is { created: boolean; deletion: AdminMediaDeletion } {
+  return (
+    isRecord(value) &&
+    typeof value.created === 'boolean' &&
+    isMediaDeletion(value.deletion)
   )
 }
 

@@ -12,6 +12,7 @@ import { LecturesRepository } from './lectures.repository.js'
 import { LecturesService } from './lectures.service.js'
 import { MediaJobsService } from './media-jobs.service.js'
 import { ResumableAudioService } from './resumable-audio.service.js'
+import { UploadReconciliationService } from './upload-reconciliation.service.js'
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { ResumableAudioService } from './resumable-audio.service.js'
     LecturesRepository,
     LecturesService,
     ResumableAudioService,
+    UploadReconciliationService,
     MediaJobsService,
     LectureWriteGuard,
     {

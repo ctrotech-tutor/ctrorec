@@ -29,7 +29,12 @@ export function CourseWorkspace({ ownerId }: Readonly<{ ownerId: string }>) {
     refetchInterval: (query) =>
       query.state.data?.some((lecture) => {
         const status = lecture.audio?.dataSaver?.status
-        return status === 'pending' || status === 'processing'
+        return (
+          status === 'pending' ||
+          status === 'processing' ||
+          (lecture.mediaDeletion !== null &&
+            lecture.mediaDeletion.completedAt === null)
+        )
       })
         ? 2_000
         : false,
@@ -446,6 +451,27 @@ function LectureItem({
           <p className="data-note">
             Audio loads when you choose to play it. Data saver is a derived
             copy; the original remains available.
+          </p>
+        </div>
+      ) : lecture.mediaDeletion ? (
+        <div
+          className="deleted-media-notice"
+          data-testid={`deleted-media-${lecture.id}`}
+        >
+          <strong>
+            {lecture.mediaDeletion.completedAt
+              ? 'Lecture media deleted'
+              : 'Lecture media deletion in progress'}
+          </strong>
+          <p>
+            The original and data-saver copies are no longer available in this
+            course. The lecture record remains for academic history.
+          </p>
+          <p className="data-note">
+            Requested {formatLectureDate(lecture.mediaDeletion.requestedAt)}.
+            {lecture.mediaDeletion.completedAt
+              ? ` Object deletion confirmed ${formatLectureDate(lecture.mediaDeletion.completedAt)}.`
+              : ' Object deletion has not yet been confirmed.'}
           </p>
         </div>
       ) : canManage ? (

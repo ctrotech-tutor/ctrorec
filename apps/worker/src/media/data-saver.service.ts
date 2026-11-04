@@ -58,12 +58,11 @@ export class DataSaverService implements OnModuleInit {
     }
 
     const { audio, derivative, captureDurationMs } = claimed
-    const key = `${audio.institutionId}/${audio.lectureId}/${derivative.id}.m4a`
     const signal = AbortSignal.any([
       jobSignal,
       AbortSignal.timeout(this.timeoutMs),
     ])
-    let saved = false
+    let mediaIntent: { id: string; key: string } | undefined
     await mkdir(this.temporaryRoot, { recursive: true })
     const temporaryDirectory = await mkdtemp(
       join(this.temporaryRoot, 'data-saver-'),
@@ -108,46 +107,82 @@ export class DataSaverService implements OnModuleInit {
       }
 
       signal.throwIfAborted()
-      await this.storage.delete(key)
-      signal.throwIfAborted()
-      await this.storage.save(key, destinationPath)
-      saved = true
-      await this.storage.verify(key, inspected.byteSize)
+      const intentId = await this.repository.newMediaObjectIntentId()
+      const intent = {
+        id: intentId,
+        key: `${audio.institutionId}/${audio.lectureId}/${intentId}.m4a`,
+      }
+      mediaIntent = intent
+      await this.repository.createMediaObjectIntent({
+        id: intent.id,
+        lectureId: audio.lectureId,
+        institutionId: audio.institutionId,
+        kind: 'data_saver',
+        storageProvider: this.storage.provider,
+        storageKey: intent.key,
+        byteSize: inspected.byteSize,
+        sha256: inspected.sha256,
+      })
+      await this.storage.save(intent.key, destinationPath)
+      await this.storage.verify(intent.key, inspected.byteSize)
       signal.throwIfAborted()
       const marked = await this.repository.markReady(
         derivative.id,
         derivative.processingStartedAt,
         {
           storageProvider: this.storage.provider,
-          storageKey: key,
+          storageKey: intent.key,
           byteSize: inspected.byteSize,
           sha256: inspected.sha256,
         },
+        intent.id,
       )
       if (!marked) {
         throw new Error('The derivative ready state could not be committed.')
       }
     } catch (error) {
       try {
-        const failed = await this.repository.markFailed(
+        await this.repository.markFailed(
           derivative.id,
           derivative.processingStartedAt,
         )
-        if (saved && failed) {
-          await this.storage.delete(key)
-        }
-      } catch (cleanupError) {
+      } catch (stateError) {
         this.logger.error(
-          `Failed to clean up derivative ${derivative.id}: ${
-            cleanupError instanceof Error
-              ? cleanupError.message
-              : 'unknown error'
+          `Failed to mark derivative ${derivative.id} as failed: ${
+            stateError instanceof Error ? stateError.message : 'unknown error'
           }`,
         )
+      }
+      if (mediaIntent) {
+        await this.compensateMediaObject(mediaIntent)
       }
       throw error
     } finally {
       await rm(temporaryDirectory, { recursive: true, force: true })
+    }
+  }
+
+  private async compensateMediaObject(intent: {
+    id: string
+    key: string
+  }): Promise<void> {
+    try {
+      const deletion = await this.repository.requestMediaObjectDeletion(
+        intent.id,
+      )
+      if (!deletion) {
+        return
+      }
+      if (deletion.storageProvider !== this.storage.provider) {
+        throw new Error('The media intent belongs to another storage provider.')
+      }
+      await this.storage.delete(deletion.storageKey)
+      await this.repository.markMediaObjectDeleted(intent.id)
+    } catch (cleanupError) {
+      this.logger.error(
+        `Media cleanup remains pending for intent ${intent.id}.`,
+        cleanupError instanceof Error ? cleanupError.stack : undefined,
+      )
     }
   }
 }

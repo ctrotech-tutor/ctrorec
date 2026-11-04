@@ -1,0 +1,3405 @@
+{
+  "id": "140eea59-d917-4a0a-b6bb-df66913697aa",
+  "prevId": "34fa7a5b-b449-4af9-a4e9-c79dea7f263f",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.auth_sessions": {
+      "name": "auth_sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_active_at": {
+          "name": "last_active_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mfa": {
+          "name": "mfa",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "auth_sessions_user_idx": {
+          "name": "auth_sessions_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "auth_sessions_expires_idx": {
+          "name": "auth_sessions_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "auth_sessions_user_fk": {
+          "name": "auth_sessions_user_fk",
+          "tableFrom": "auth_sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "auth_sessions_id_nonempty": {
+          "name": "auth_sessions_id_nonempty",
+          "value": "btrim(\"auth_sessions\".\"id\") <> ''"
+        },
+        "auth_sessions_mfa_valid": {
+          "name": "auth_sessions_mfa_valid",
+          "value": "\"auth_sessions\".\"mfa\" IS NULL OR \"auth_sessions\".\"mfa\" IN ('pending', 'verified')"
+        },
+        "auth_sessions_expiry_valid": {
+          "name": "auth_sessions_expiry_valid",
+          "value": "\"auth_sessions\".\"expires_at\" > \"auth_sessions\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.academic_terms": {
+      "name": "academic_terms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "starts_on": {
+          "name": "starts_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ends_on": {
+          "name": "ends_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'planned'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "academic_terms_institution_fk": {
+          "name": "academic_terms_institution_fk",
+          "tableFrom": "academic_terms",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "academic_terms_institution_code_unique": {
+          "name": "academic_terms_institution_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "institution_id",
+            "code"
+          ]
+        },
+        "academic_terms_id_institution_unique": {
+          "name": "academic_terms_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "academic_terms_dates_valid": {
+          "name": "academic_terms_dates_valid",
+          "value": "\"academic_terms\".\"ends_on\" >= \"academic_terms\".\"starts_on\""
+        },
+        "academic_terms_fields_valid": {
+          "name": "academic_terms_fields_valid",
+          "value": "btrim(\"academic_terms\".\"name\") <> '' AND btrim(\"academic_terms\".\"code\") <> '' AND \"academic_terms\".\"code\" = upper(btrim(\"academic_terms\".\"code\"))"
+        },
+        "academic_terms_status_valid": {
+          "name": "academic_terms_status_valid",
+          "value": "\"academic_terms\".\"status\" IN ('planned', 'active', 'completed', 'archived')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.academic_units": {
+      "name": "academic_units",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "academic_units_parent_idx": {
+          "name": "academic_units_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "academic_units_institution_fk": {
+          "name": "academic_units_institution_fk",
+          "tableFrom": "academic_units",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "academic_units_parent_fk": {
+          "name": "academic_units_parent_fk",
+          "tableFrom": "academic_units",
+          "tableTo": "academic_units",
+          "columnsFrom": [
+            "parent_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "academic_units_institution_code_unique": {
+          "name": "academic_units_institution_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "institution_id",
+            "code"
+          ]
+        },
+        "academic_units_id_institution_unique": {
+          "name": "academic_units_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "academic_units_not_own_parent": {
+          "name": "academic_units_not_own_parent",
+          "value": "\"academic_units\".\"parent_id\" IS NULL OR \"academic_units\".\"parent_id\" <> \"academic_units\".\"id\""
+        },
+        "academic_units_fields_valid": {
+          "name": "academic_units_fields_valid",
+          "value": "btrim(\"academic_units\".\"kind\") <> '' AND btrim(\"academic_units\".\"name\") <> '' AND btrim(\"academic_units\".\"code\") <> '' AND \"academic_units\".\"code\" = upper(btrim(\"academic_units\".\"code\"))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.course_offerings": {
+      "name": "course_offerings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "course_id": {
+          "name": "course_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "term_id": {
+          "name": "term_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "section": {
+          "name": "section",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'main'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'planned'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "course_offerings_term_idx": {
+          "name": "course_offerings_term_idx",
+          "columns": [
+            {
+              "expression": "term_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "course_offerings_institution_fk": {
+          "name": "course_offerings_institution_fk",
+          "tableFrom": "course_offerings",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "course_offerings_course_fk": {
+          "name": "course_offerings_course_fk",
+          "tableFrom": "course_offerings",
+          "tableTo": "courses",
+          "columnsFrom": [
+            "course_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "course_offerings_term_fk": {
+          "name": "course_offerings_term_fk",
+          "tableFrom": "course_offerings",
+          "tableTo": "academic_terms",
+          "columnsFrom": [
+            "term_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "course_offerings_course_term_section_unique": {
+          "name": "course_offerings_course_term_section_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "institution_id",
+            "course_id",
+            "term_id",
+            "section"
+          ]
+        },
+        "course_offerings_id_institution_unique": {
+          "name": "course_offerings_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "course_offerings_section_nonempty": {
+          "name": "course_offerings_section_nonempty",
+          "value": "btrim(\"course_offerings\".\"section\") <> ''"
+        },
+        "course_offerings_status_valid": {
+          "name": "course_offerings_status_valid",
+          "value": "\"course_offerings\".\"status\" IN ('planned', 'active', 'completed', 'archived')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.courses": {
+      "name": "courses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_id": {
+          "name": "unit_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "courses_unit_idx": {
+          "name": "courses_unit_idx",
+          "columns": [
+            {
+              "expression": "unit_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "courses_institution_fk": {
+          "name": "courses_institution_fk",
+          "tableFrom": "courses",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "courses_unit_fk": {
+          "name": "courses_unit_fk",
+          "tableFrom": "courses",
+          "tableTo": "academic_units",
+          "columnsFrom": [
+            "unit_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "courses_institution_code_unique": {
+          "name": "courses_institution_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "institution_id",
+            "code"
+          ]
+        },
+        "courses_id_institution_unique": {
+          "name": "courses_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "courses_fields_valid": {
+          "name": "courses_fields_valid",
+          "value": "btrim(\"courses\".\"title\") <> '' AND btrim(\"courses\".\"code\") <> '' AND \"courses\".\"code\" = upper(btrim(\"courses\".\"code\"))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.institutions": {
+      "name": "institutions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "institutions_slug_unique": {
+          "name": "institutions_slug_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "institutions_slug_format": {
+          "name": "institutions_slug_format",
+          "value": "\"institutions\".\"slug\" ~ '^[a-z0-9]+(-[a-z0-9]+)*$'"
+        },
+        "institutions_name_nonempty": {
+          "name": "institutions_name_nonempty",
+          "value": "btrim(\"institutions\".\"name\") <> ''"
+        },
+        "institutions_status_valid": {
+          "name": "institutions_status_valid",
+          "value": "\"institutions\".\"status\" IN ('active', 'suspended', 'archived')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.membership_roles": {
+      "name": "membership_roles",
+      "schema": "",
+      "columns": {
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "membership_roles_membership_fk": {
+          "name": "membership_roles_membership_fk",
+          "tableFrom": "membership_roles",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "membership_roles_pkey": {
+          "name": "membership_roles_pkey",
+          "columns": [
+            "institution_id",
+            "membership_id",
+            "role"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "membership_roles_role_valid": {
+          "name": "membership_roles_role_valid",
+          "value": "\"membership_roles\".\"role\" IN ('institution_admin', 'academic_staff', 'student')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.memberships": {
+      "name": "memberships",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "memberships_user_idx": {
+          "name": "memberships_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "memberships_institution_fk": {
+          "name": "memberships_institution_fk",
+          "tableFrom": "memberships",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "memberships_user_fk": {
+          "name": "memberships_user_fk",
+          "tableFrom": "memberships",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "memberships_institution_user_unique": {
+          "name": "memberships_institution_user_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "institution_id",
+            "user_id"
+          ]
+        },
+        "memberships_id_institution_unique": {
+          "name": "memberships_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "memberships_status_valid": {
+          "name": "memberships_status_valid",
+          "value": "\"memberships\".\"status\" IN ('active', 'suspended')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "credentials_version": {
+          "name": "credentials_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "email_verified_at": {
+          "name": "email_verified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "users_email_normalized": {
+          "name": "users_email_normalized",
+          "value": "\"users\".\"email\" = lower(btrim(\"users\".\"email\")) AND position('@' IN \"users\".\"email\") > 1"
+        },
+        "users_credentials_version_valid": {
+          "name": "users_credentials_version_valid",
+          "value": "\"users\".\"credentials_version\" >= 0"
+        },
+        "users_display_name_nonempty": {
+          "name": "users_display_name_nonempty",
+          "value": "btrim(\"users\".\"display_name\") <> ''"
+        },
+        "users_status_valid": {
+          "name": "users_status_valid",
+          "value": "\"users\".\"status\" IN ('invited', 'active', 'suspended')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.institution_invitation_roles": {
+      "name": "institution_invitation_roles",
+      "schema": "",
+      "columns": {
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invitation_id": {
+          "name": "invitation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "institution_invitation_roles_invitation_fk": {
+          "name": "institution_invitation_roles_invitation_fk",
+          "tableFrom": "institution_invitation_roles",
+          "tableTo": "institution_invitations",
+          "columnsFrom": [
+            "invitation_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "institution_invitation_roles_pkey": {
+          "name": "institution_invitation_roles_pkey",
+          "columns": [
+            "institution_id",
+            "invitation_id",
+            "role"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "institution_invitation_roles_role_valid": {
+          "name": "institution_invitation_roles_role_valid",
+          "value": "\"institution_invitation_roles\".\"role\" IN ('institution_admin', 'academic_staff', 'student')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.institution_invitations": {
+      "name": "institution_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invited_by_membership_id": {
+          "name": "invited_by_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accepted_at": {
+          "name": "accepted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_user_id": {
+          "name": "accepted_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accepted_membership_id": {
+          "name": "accepted_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revocation_reason": {
+          "name": "revocation_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "institution_invitations_one_open_email_unique": {
+          "name": "institution_invitations_one_open_email_unique",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"institution_invitations\".\"accepted_at\" IS NULL AND \"institution_invitations\".\"revoked_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "institution_invitations_institution_created_idx": {
+          "name": "institution_invitations_institution_created_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "institution_invitations_institution_fk": {
+          "name": "institution_invitations_institution_fk",
+          "tableFrom": "institution_invitations",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "institution_invitations_issuer_fk": {
+          "name": "institution_invitations_issuer_fk",
+          "tableFrom": "institution_invitations",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "invited_by_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "institution_invitations_accepted_user_fk": {
+          "name": "institution_invitations_accepted_user_fk",
+          "tableFrom": "institution_invitations",
+          "tableTo": "users",
+          "columnsFrom": [
+            "accepted_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "institution_invitations_accepted_membership_fk": {
+          "name": "institution_invitations_accepted_membership_fk",
+          "tableFrom": "institution_invitations",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "accepted_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "institution_invitations_token_hash_unique": {
+          "name": "institution_invitations_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        },
+        "institution_invitations_id_institution_unique": {
+          "name": "institution_invitations_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "institution_invitations_email_normalized": {
+          "name": "institution_invitations_email_normalized",
+          "value": "\"institution_invitations\".\"email\" = lower(btrim(\"institution_invitations\".\"email\")) AND position('@' IN \"institution_invitations\".\"email\") > 1"
+        },
+        "institution_invitations_display_name_nonempty": {
+          "name": "institution_invitations_display_name_nonempty",
+          "value": "btrim(\"institution_invitations\".\"display_name\") <> ''"
+        },
+        "institution_invitations_token_hash_valid": {
+          "name": "institution_invitations_token_hash_valid",
+          "value": "\"institution_invitations\".\"token_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "institution_invitations_expiry_valid": {
+          "name": "institution_invitations_expiry_valid",
+          "value": "\"institution_invitations\".\"expires_at\" > \"institution_invitations\".\"created_at\""
+        },
+        "institution_invitations_acceptance_complete": {
+          "name": "institution_invitations_acceptance_complete",
+          "value": "(\"institution_invitations\".\"accepted_at\" IS NULL AND \"institution_invitations\".\"accepted_user_id\" IS NULL AND \"institution_invitations\".\"accepted_membership_id\" IS NULL) OR (\"institution_invitations\".\"accepted_at\" IS NOT NULL AND \"institution_invitations\".\"accepted_user_id\" IS NOT NULL AND \"institution_invitations\".\"accepted_membership_id\" IS NOT NULL)"
+        },
+        "institution_invitations_revocation_complete": {
+          "name": "institution_invitations_revocation_complete",
+          "value": "(\"institution_invitations\".\"revoked_at\" IS NULL AND \"institution_invitations\".\"revocation_reason\" IS NULL) OR (\"institution_invitations\".\"revoked_at\" IS NOT NULL AND \"institution_invitations\".\"revocation_reason\" IN ('administrator', 'replaced'))"
+        },
+        "institution_invitations_not_accepted_and_revoked": {
+          "name": "institution_invitations_not_accepted_and_revoked",
+          "value": "\"institution_invitations\".\"accepted_at\" IS NULL OR \"institution_invitations\".\"revoked_at\" IS NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.account_recovery_requests": {
+      "name": "account_recovery_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "delivered_at": {
+          "name": "delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revocation_reason": {
+          "name": "revocation_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "account_recovery_requests_email_status_idx": {
+          "name": "account_recovery_requests_email_status_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_recovery_requests_user_idx": {
+          "name": "account_recovery_requests_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "account_recovery_requests_user_fk": {
+          "name": "account_recovery_requests_user_fk",
+          "tableFrom": "account_recovery_requests",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "account_recovery_requests_token_hash_unique": {
+          "name": "account_recovery_requests_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "account_recovery_requests_email_normalized": {
+          "name": "account_recovery_requests_email_normalized",
+          "value": "\"account_recovery_requests\".\"email\" = lower(btrim(\"account_recovery_requests\".\"email\")) AND position('@' IN \"account_recovery_requests\".\"email\") > 1"
+        },
+        "account_recovery_requests_token_hash_valid": {
+          "name": "account_recovery_requests_token_hash_valid",
+          "value": "\"account_recovery_requests\".\"token_hash\" IS NULL OR \"account_recovery_requests\".\"token_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "account_recovery_requests_expiry_valid": {
+          "name": "account_recovery_requests_expiry_valid",
+          "value": "\"account_recovery_requests\".\"expires_at\" > \"account_recovery_requests\".\"created_at\""
+        },
+        "account_recovery_requests_status_valid": {
+          "name": "account_recovery_requests_status_valid",
+          "value": "\"account_recovery_requests\".\"status\" IN ('pending', 'delivering', 'delivered', 'failed', 'discarded', 'expired', 'consumed', 'revoked')"
+        },
+        "account_recovery_requests_token_user_complete": {
+          "name": "account_recovery_requests_token_user_complete",
+          "value": "\"account_recovery_requests\".\"token_hash\" IS NULL OR \"account_recovery_requests\".\"user_id\" IS NOT NULL"
+        },
+        "account_recovery_requests_delivery_state_valid": {
+          "name": "account_recovery_requests_delivery_state_valid",
+          "value": "(\"account_recovery_requests\".\"status\" = 'pending' AND \"account_recovery_requests\".\"token_hash\" IS NULL AND \"account_recovery_requests\".\"delivered_at\" IS NULL AND \"account_recovery_requests\".\"consumed_at\" IS NULL) OR (\"account_recovery_requests\".\"status\" IN ('delivering', 'failed') AND \"account_recovery_requests\".\"token_hash\" IS NOT NULL AND \"account_recovery_requests\".\"delivered_at\" IS NULL AND \"account_recovery_requests\".\"consumed_at\" IS NULL) OR (\"account_recovery_requests\".\"status\" = 'delivered' AND \"account_recovery_requests\".\"token_hash\" IS NOT NULL AND \"account_recovery_requests\".\"delivered_at\" IS NOT NULL AND \"account_recovery_requests\".\"consumed_at\" IS NULL) OR (\"account_recovery_requests\".\"status\" = 'consumed' AND \"account_recovery_requests\".\"token_hash\" IS NOT NULL AND \"account_recovery_requests\".\"delivered_at\" IS NOT NULL AND \"account_recovery_requests\".\"consumed_at\" IS NOT NULL) OR (\"account_recovery_requests\".\"status\" IN ('discarded', 'expired', 'revoked') AND \"account_recovery_requests\".\"consumed_at\" IS NULL)"
+        },
+        "account_recovery_requests_revocation_complete": {
+          "name": "account_recovery_requests_revocation_complete",
+          "value": "(\"account_recovery_requests\".\"revoked_at\" IS NULL AND \"account_recovery_requests\".\"revocation_reason\" IS NULL) OR (\"account_recovery_requests\".\"revoked_at\" IS NOT NULL AND \"account_recovery_requests\".\"revocation_reason\" IN ('replaced', 'reset'))"
+        },
+        "account_recovery_requests_not_consumed_and_revoked": {
+          "name": "account_recovery_requests_not_consumed_and_revoked",
+          "value": "\"account_recovery_requests\".\"consumed_at\" IS NULL OR \"account_recovery_requests\".\"revoked_at\" IS NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.enrollments": {
+      "name": "enrollments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "course_offering_id": {
+          "name": "course_offering_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enrolled_at": {
+          "name": "enrolled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "enrollments_active_unique": {
+          "name": "enrollments_active_unique",
+          "columns": [
+            {
+              "expression": "course_offering_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"enrollments\".\"ends_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "enrollments_membership_idx": {
+          "name": "enrollments_membership_idx",
+          "columns": [
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ends_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "enrollments_institution_fk": {
+          "name": "enrollments_institution_fk",
+          "tableFrom": "enrollments",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "enrollments_offering_fk": {
+          "name": "enrollments_offering_fk",
+          "tableFrom": "enrollments",
+          "tableTo": "course_offerings",
+          "columnsFrom": [
+            "course_offering_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "enrollments_membership_fk": {
+          "name": "enrollments_membership_fk",
+          "tableFrom": "enrollments",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "enrollments_id_institution_unique": {
+          "name": "enrollments_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "enrollments_dates_valid": {
+          "name": "enrollments_dates_valid",
+          "value": "\"enrollments\".\"ends_at\" IS NULL OR \"enrollments\".\"ends_at\" > \"enrollments\".\"enrolled_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lecture_audio": {
+      "name": "lecture_audio",
+      "schema": "",
+      "columns": {
+        "lecture_id": {
+          "name": "lecture_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uploaded_by_membership_id": {
+          "name": "uploaded_by_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_provider": {
+          "name": "storage_provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_file_name": {
+          "name": "original_file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "media_type": {
+          "name": "media_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lecture_audio_uploader_idx": {
+          "name": "lecture_audio_uploader_idx",
+          "columns": [
+            {
+              "expression": "uploaded_by_membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lecture_audio_institution_fk": {
+          "name": "lecture_audio_institution_fk",
+          "tableFrom": "lecture_audio",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_audio_lecture_fk": {
+          "name": "lecture_audio_lecture_fk",
+          "tableFrom": "lecture_audio",
+          "tableTo": "lectures",
+          "columnsFrom": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_audio_uploader_fk": {
+          "name": "lecture_audio_uploader_fk",
+          "tableFrom": "lecture_audio",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "uploaded_by_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lecture_audio_lecture_institution_unique": {
+          "name": "lecture_audio_lecture_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "lecture_id",
+            "institution_id"
+          ]
+        },
+        "lecture_audio_storage_key_unique": {
+          "name": "lecture_audio_storage_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "storage_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lecture_audio_storage_fields_valid": {
+          "name": "lecture_audio_storage_fields_valid",
+          "value": "btrim(\"lecture_audio\".\"storage_provider\") <> '' AND btrim(\"lecture_audio\".\"storage_key\") <> ''"
+        },
+        "lecture_audio_file_name_valid": {
+          "name": "lecture_audio_file_name_valid",
+          "value": "btrim(\"lecture_audio\".\"original_file_name\") = \"lecture_audio\".\"original_file_name\" AND char_length(\"lecture_audio\".\"original_file_name\") BETWEEN 1 AND 255"
+        },
+        "lecture_audio_media_type_valid": {
+          "name": "lecture_audio_media_type_valid",
+          "value": "\"lecture_audio\".\"media_type\" IN ('audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/webm', 'audio/ogg')"
+        },
+        "lecture_audio_byte_size_positive": {
+          "name": "lecture_audio_byte_size_positive",
+          "value": "\"lecture_audio\".\"byte_size\" > 0"
+        },
+        "lecture_audio_sha256_valid": {
+          "name": "lecture_audio_sha256_valid",
+          "value": "\"lecture_audio\".\"sha256\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lecture_audio_captures": {
+      "name": "lecture_audio_captures",
+      "schema": "",
+      "columns": {
+        "lecture_id": {
+          "name": "lecture_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_capture_id": {
+          "name": "client_capture_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorder_mime_type": {
+          "name": "recorder_mime_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consent_attested_at": {
+          "name": "consent_attested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stopped_at": {
+          "name": "stopped_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chunk_count": {
+          "name": "chunk_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "persistent_storage_granted": {
+          "name": "persistent_storage_granted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stop_reason": {
+          "name": "stop_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hashing_duration_ms": {
+          "name": "hashing_duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "upload_duration_ms": {
+          "name": "upload_duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "upload_retry_count": {
+          "name": "upload_retry_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "lecture_audio_captures_lecture_fk": {
+          "name": "lecture_audio_captures_lecture_fk",
+          "tableFrom": "lecture_audio_captures",
+          "tableTo": "lectures",
+          "columnsFrom": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lecture_audio_captures_client_unique": {
+          "name": "lecture_audio_captures_client_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "client_capture_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lecture_audio_captures_mime_valid": {
+          "name": "lecture_audio_captures_mime_valid",
+          "value": "btrim(\"lecture_audio_captures\".\"recorder_mime_type\") = \"lecture_audio_captures\".\"recorder_mime_type\" AND char_length(\"lecture_audio_captures\".\"recorder_mime_type\") BETWEEN 1 AND 120"
+        },
+        "lecture_audio_captures_times_valid": {
+          "name": "lecture_audio_captures_times_valid",
+          "value": "\"lecture_audio_captures\".\"consent_attested_at\" <= \"lecture_audio_captures\".\"started_at\" AND \"lecture_audio_captures\".\"started_at\" <= \"lecture_audio_captures\".\"stopped_at\""
+        },
+        "lecture_audio_captures_measurements_valid": {
+          "name": "lecture_audio_captures_measurements_valid",
+          "value": "\"lecture_audio_captures\".\"duration_ms\" >= 0 AND \"lecture_audio_captures\".\"chunk_count\" > 0"
+        },
+        "lecture_audio_captures_stop_reason_valid": {
+          "name": "lecture_audio_captures_stop_reason_valid",
+          "value": "\"lecture_audio_captures\".\"stop_reason\" IN ('stopped', 'interrupted', 'track-ended', 'recorder-error', 'size-limit')"
+        },
+        "lecture_audio_captures_handoff_measurements_valid": {
+          "name": "lecture_audio_captures_handoff_measurements_valid",
+          "value": "(\n        \"lecture_audio_captures\".\"hashing_duration_ms\" IS NULL\n        AND \"lecture_audio_captures\".\"upload_duration_ms\" IS NULL\n        AND \"lecture_audio_captures\".\"upload_retry_count\" IS NULL\n      ) OR (\n        \"lecture_audio_captures\".\"hashing_duration_ms\" IS NOT NULL\n        AND \"lecture_audio_captures\".\"upload_duration_ms\" IS NOT NULL\n        AND \"lecture_audio_captures\".\"upload_retry_count\" IS NOT NULL\n        AND \"lecture_audio_captures\".\"hashing_duration_ms\" >= 0\n        AND \"lecture_audio_captures\".\"upload_duration_ms\" >= 0\n        AND \"lecture_audio_captures\".\"upload_retry_count\" >= 0\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lecture_audio_derivatives": {
+      "name": "lecture_audio_derivatives",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "lecture_id": {
+          "name": "lecture_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'data_saver'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "source_sha256": {
+          "name": "source_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_provider": {
+          "name": "storage_provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_type": {
+          "name": "media_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'audio/mp4'"
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "processing_started_at": {
+          "name": "processing_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lecture_audio_derivatives_status_idx": {
+          "name": "lecture_audio_derivatives_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lecture_audio_derivatives_institution_fk": {
+          "name": "lecture_audio_derivatives_institution_fk",
+          "tableFrom": "lecture_audio_derivatives",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_audio_derivatives_original_fk": {
+          "name": "lecture_audio_derivatives_original_fk",
+          "tableFrom": "lecture_audio_derivatives",
+          "tableTo": "lecture_audio",
+          "columnsFrom": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lecture_audio_derivatives_lecture_kind_unique": {
+          "name": "lecture_audio_derivatives_lecture_kind_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "lecture_id",
+            "kind"
+          ]
+        },
+        "lecture_audio_derivatives_storage_key_unique": {
+          "name": "lecture_audio_derivatives_storage_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "storage_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lecture_audio_derivatives_kind_valid": {
+          "name": "lecture_audio_derivatives_kind_valid",
+          "value": "\"lecture_audio_derivatives\".\"kind\" = 'data_saver'"
+        },
+        "lecture_audio_derivatives_status_valid": {
+          "name": "lecture_audio_derivatives_status_valid",
+          "value": "\"lecture_audio_derivatives\".\"status\" IN ('pending', 'processing', 'ready', 'failed')"
+        },
+        "lecture_audio_derivatives_source_sha256_valid": {
+          "name": "lecture_audio_derivatives_source_sha256_valid",
+          "value": "\"lecture_audio_derivatives\".\"source_sha256\" ~ '^[0-9a-f]{64}$'"
+        },
+        "lecture_audio_derivatives_media_type_valid": {
+          "name": "lecture_audio_derivatives_media_type_valid",
+          "value": "\"lecture_audio_derivatives\".\"media_type\" = 'audio/mp4'"
+        },
+        "lecture_audio_derivatives_attempts_valid": {
+          "name": "lecture_audio_derivatives_attempts_valid",
+          "value": "\"lecture_audio_derivatives\".\"attempts\" >= 0"
+        },
+        "lecture_audio_derivatives_processing_state_valid": {
+          "name": "lecture_audio_derivatives_processing_state_valid",
+          "value": "(\"lecture_audio_derivatives\".\"status\" = 'processing' AND \"lecture_audio_derivatives\".\"processing_started_at\" IS NOT NULL) OR (\"lecture_audio_derivatives\".\"status\" <> 'processing' AND \"lecture_audio_derivatives\".\"processing_started_at\" IS NULL)"
+        },
+        "lecture_audio_derivatives_ready_state_valid": {
+          "name": "lecture_audio_derivatives_ready_state_valid",
+          "value": "(\"lecture_audio_derivatives\".\"status\" = 'ready' AND \"lecture_audio_derivatives\".\"storage_provider\" IS NOT NULL AND btrim(\"lecture_audio_derivatives\".\"storage_provider\") <> '' AND \"lecture_audio_derivatives\".\"storage_key\" IS NOT NULL AND btrim(\"lecture_audio_derivatives\".\"storage_key\") <> '' AND \"lecture_audio_derivatives\".\"byte_size\" IS NOT NULL AND \"lecture_audio_derivatives\".\"byte_size\" > 0 AND \"lecture_audio_derivatives\".\"sha256\" IS NOT NULL AND \"lecture_audio_derivatives\".\"sha256\" ~ '^[0-9a-f]{64}$' AND \"lecture_audio_derivatives\".\"completed_at\" IS NOT NULL) OR (\"lecture_audio_derivatives\".\"status\" <> 'ready' AND \"lecture_audio_derivatives\".\"storage_provider\" IS NULL AND \"lecture_audio_derivatives\".\"storage_key\" IS NULL AND \"lecture_audio_derivatives\".\"byte_size\" IS NULL AND \"lecture_audio_derivatives\".\"sha256\" IS NULL AND \"lecture_audio_derivatives\".\"completed_at\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lecture_audio_uploads": {
+      "name": "lecture_audio_uploads",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "lecture_id": {
+          "name": "lecture_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_membership_id": {
+          "name": "created_by_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_file_name": {
+          "name": "original_file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_bytes": {
+          "name": "received_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "chunk_size": {
+          "name": "chunk_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lecture_audio_uploads_active_lecture_unique": {
+          "name": "lecture_audio_uploads_active_lecture_unique",
+          "columns": [
+            {
+              "expression": "lecture_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"lecture_audio_uploads\".\"status\" = 'active'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lecture_audio_uploads_expiry_idx": {
+          "name": "lecture_audio_uploads_expiry_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lecture_audio_uploads_institution_fk": {
+          "name": "lecture_audio_uploads_institution_fk",
+          "tableFrom": "lecture_audio_uploads",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_audio_uploads_lecture_fk": {
+          "name": "lecture_audio_uploads_lecture_fk",
+          "tableFrom": "lecture_audio_uploads",
+          "tableTo": "lectures",
+          "columnsFrom": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_audio_uploads_creator_fk": {
+          "name": "lecture_audio_uploads_creator_fk",
+          "tableFrom": "lecture_audio_uploads",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "created_by_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "lecture_audio_uploads_file_name_valid": {
+          "name": "lecture_audio_uploads_file_name_valid",
+          "value": "btrim(\"lecture_audio_uploads\".\"original_file_name\") = \"lecture_audio_uploads\".\"original_file_name\" AND char_length(\"lecture_audio_uploads\".\"original_file_name\") BETWEEN 1 AND 255"
+        },
+        "lecture_audio_uploads_byte_size_positive": {
+          "name": "lecture_audio_uploads_byte_size_positive",
+          "value": "\"lecture_audio_uploads\".\"byte_size\" > 0"
+        },
+        "lecture_audio_uploads_sha256_valid": {
+          "name": "lecture_audio_uploads_sha256_valid",
+          "value": "\"lecture_audio_uploads\".\"sha256\" ~ '^[0-9a-f]{64}$'"
+        },
+        "lecture_audio_uploads_received_bytes_valid": {
+          "name": "lecture_audio_uploads_received_bytes_valid",
+          "value": "\"lecture_audio_uploads\".\"received_bytes\" >= 0 AND \"lecture_audio_uploads\".\"received_bytes\" <= \"lecture_audio_uploads\".\"byte_size\""
+        },
+        "lecture_audio_uploads_chunk_size_valid": {
+          "name": "lecture_audio_uploads_chunk_size_valid",
+          "value": "\"lecture_audio_uploads\".\"chunk_size\" BETWEEN 16384 AND 8388608"
+        },
+        "lecture_audio_uploads_status_valid": {
+          "name": "lecture_audio_uploads_status_valid",
+          "value": "\"lecture_audio_uploads\".\"status\" IN ('active', 'completed', 'cancelled', 'expired')"
+        },
+        "lecture_audio_uploads_completion_valid": {
+          "name": "lecture_audio_uploads_completion_valid",
+          "value": "(\"lecture_audio_uploads\".\"status\" = 'completed' AND \"lecture_audio_uploads\".\"received_bytes\" = \"lecture_audio_uploads\".\"byte_size\" AND \"lecture_audio_uploads\".\"completed_at\" IS NOT NULL) OR (\"lecture_audio_uploads\".\"status\" <> 'completed' AND \"lecture_audio_uploads\".\"completed_at\" IS NULL)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lecture_media_deletions": {
+      "name": "lecture_media_deletions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lecture_id": {
+          "name": "lecture_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_by_membership_id": {
+          "name": "requested_by_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_file_name": {
+          "name": "original_file_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_media_type": {
+          "name": "original_media_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_byte_size": {
+          "name": "original_byte_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_sha256": {
+          "name": "original_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "lecture_media_deletions_institution_idx": {
+          "name": "lecture_media_deletions_institution_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lecture_media_deletions_institution_fk": {
+          "name": "lecture_media_deletions_institution_fk",
+          "tableFrom": "lecture_media_deletions",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_media_deletions_lecture_fk": {
+          "name": "lecture_media_deletions_lecture_fk",
+          "tableFrom": "lecture_media_deletions",
+          "tableTo": "lectures",
+          "columnsFrom": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_media_deletions_requester_fk": {
+          "name": "lecture_media_deletions_requester_fk",
+          "tableFrom": "lecture_media_deletions",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "requested_by_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lecture_media_deletions_lecture_unique": {
+          "name": "lecture_media_deletions_lecture_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "lecture_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lecture_media_deletions_reason_valid": {
+          "name": "lecture_media_deletions_reason_valid",
+          "value": "btrim(\"lecture_media_deletions\".\"reason\") = \"lecture_media_deletions\".\"reason\" AND char_length(\"lecture_media_deletions\".\"reason\") BETWEEN 1 AND 500"
+        },
+        "lecture_media_deletions_original_file_name_valid": {
+          "name": "lecture_media_deletions_original_file_name_valid",
+          "value": "btrim(\"lecture_media_deletions\".\"original_file_name\") = \"lecture_media_deletions\".\"original_file_name\" AND char_length(\"lecture_media_deletions\".\"original_file_name\") BETWEEN 1 AND 255"
+        },
+        "lecture_media_deletions_original_media_type_valid": {
+          "name": "lecture_media_deletions_original_media_type_valid",
+          "value": "\"lecture_media_deletions\".\"original_media_type\" IN ('audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/webm', 'audio/ogg')"
+        },
+        "lecture_media_deletions_original_size_positive": {
+          "name": "lecture_media_deletions_original_size_positive",
+          "value": "\"lecture_media_deletions\".\"original_byte_size\" > 0"
+        },
+        "lecture_media_deletions_original_sha256_valid": {
+          "name": "lecture_media_deletions_original_sha256_valid",
+          "value": "\"lecture_media_deletions\".\"original_sha256\" ~ '^[0-9a-f]{64}$'"
+        },
+        "lecture_media_deletions_completion_valid": {
+          "name": "lecture_media_deletions_completion_valid",
+          "value": "\"lecture_media_deletions\".\"completed_at\" IS NULL OR \"lecture_media_deletions\".\"completed_at\" >= \"lecture_media_deletions\".\"created_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lecture_media_holds": {
+      "name": "lecture_media_holds",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lecture_id": {
+          "name": "lecture_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_membership_id": {
+          "name": "created_by_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "released_by_membership_id": {
+          "name": "released_by_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "release_reason": {
+          "name": "release_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "lecture_media_holds_active_lecture_unique": {
+          "name": "lecture_media_holds_active_lecture_unique",
+          "columns": [
+            {
+              "expression": "lecture_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"lecture_media_holds\".\"released_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lecture_media_holds_institution_idx": {
+          "name": "lecture_media_holds_institution_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lecture_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lecture_media_holds_institution_fk": {
+          "name": "lecture_media_holds_institution_fk",
+          "tableFrom": "lecture_media_holds",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_media_holds_lecture_fk": {
+          "name": "lecture_media_holds_lecture_fk",
+          "tableFrom": "lecture_media_holds",
+          "tableTo": "lectures",
+          "columnsFrom": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_media_holds_creator_fk": {
+          "name": "lecture_media_holds_creator_fk",
+          "tableFrom": "lecture_media_holds",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "created_by_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecture_media_holds_releaser_fk": {
+          "name": "lecture_media_holds_releaser_fk",
+          "tableFrom": "lecture_media_holds",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "released_by_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "lecture_media_holds_reason_valid": {
+          "name": "lecture_media_holds_reason_valid",
+          "value": "btrim(\"lecture_media_holds\".\"reason\") = \"lecture_media_holds\".\"reason\" AND char_length(\"lecture_media_holds\".\"reason\") BETWEEN 1 AND 500"
+        },
+        "lecture_media_holds_release_complete": {
+          "name": "lecture_media_holds_release_complete",
+          "value": "(\n        (\"lecture_media_holds\".\"released_at\" IS NULL AND \"lecture_media_holds\".\"released_by_membership_id\" IS NULL AND \"lecture_media_holds\".\"release_reason\" IS NULL)\n        OR (\"lecture_media_holds\".\"released_at\" IS NOT NULL AND \"lecture_media_holds\".\"released_at\" >= \"lecture_media_holds\".\"created_at\" AND \"lecture_media_holds\".\"released_by_membership_id\" IS NOT NULL AND btrim(\"lecture_media_holds\".\"release_reason\") = \"lecture_media_holds\".\"release_reason\" AND char_length(\"lecture_media_holds\".\"release_reason\") BETWEEN 1 AND 500)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lecturer_assignments": {
+      "name": "lecturer_assignments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "course_offering_id": {
+          "name": "course_offering_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "membership_id": {
+          "name": "membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'lead'"
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lecturer_assignments_active_unique": {
+          "name": "lecturer_assignments_active_unique",
+          "columns": [
+            {
+              "expression": "course_offering_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"lecturer_assignments\".\"ends_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lecturer_assignments_membership_idx": {
+          "name": "lecturer_assignments_membership_idx",
+          "columns": [
+            {
+              "expression": "membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ends_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lecturer_assignments_institution_fk": {
+          "name": "lecturer_assignments_institution_fk",
+          "tableFrom": "lecturer_assignments",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecturer_assignments_offering_fk": {
+          "name": "lecturer_assignments_offering_fk",
+          "tableFrom": "lecturer_assignments",
+          "tableTo": "course_offerings",
+          "columnsFrom": [
+            "course_offering_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lecturer_assignments_membership_fk": {
+          "name": "lecturer_assignments_membership_fk",
+          "tableFrom": "lecturer_assignments",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lecturer_assignments_id_institution_unique": {
+          "name": "lecturer_assignments_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lecturer_assignments_role_valid": {
+          "name": "lecturer_assignments_role_valid",
+          "value": "\"lecturer_assignments\".\"role\" IN ('lead', 'assistant', 'guest')"
+        },
+        "lecturer_assignments_dates_valid": {
+          "name": "lecturer_assignments_dates_valid",
+          "value": "\"lecturer_assignments\".\"ends_at\" IS NULL OR \"lecturer_assignments\".\"ends_at\" > \"lecturer_assignments\".\"starts_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.lectures": {
+      "name": "lectures",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "course_offering_id": {
+          "name": "course_offering_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_membership_id": {
+          "name": "created_by_membership_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'draft'"
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "lectures_offering_status_date_idx": {
+          "name": "lectures_offering_status_date_idx",
+          "columns": [
+            {
+              "expression": "course_offering_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "lectures_creator_idx": {
+          "name": "lectures_creator_idx",
+          "columns": [
+            {
+              "expression": "created_by_membership_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "lectures_institution_fk": {
+          "name": "lectures_institution_fk",
+          "tableFrom": "lectures",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lectures_offering_fk": {
+          "name": "lectures_offering_fk",
+          "tableFrom": "lectures",
+          "tableTo": "course_offerings",
+          "columnsFrom": [
+            "course_offering_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "lectures_creator_fk": {
+          "name": "lectures_creator_fk",
+          "tableFrom": "lectures",
+          "tableTo": "memberships",
+          "columnsFrom": [
+            "created_by_membership_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "lectures_id_institution_unique": {
+          "name": "lectures_id_institution_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "institution_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "lectures_title_nonempty": {
+          "name": "lectures_title_nonempty",
+          "value": "btrim(\"lectures\".\"title\") <> ''"
+        },
+        "lectures_status_valid": {
+          "name": "lectures_status_valid",
+          "value": "\"lectures\".\"status\" IN ('draft', 'published', 'archived')"
+        },
+        "lectures_publish_time_required": {
+          "name": "lectures_publish_time_required",
+          "value": "\"lectures\".\"status\" <> 'published' OR \"lectures\".\"published_at\" IS NOT NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.media_object_intents": {
+      "name": "media_object_intents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "institution_id": {
+          "name": "institution_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lecture_id": {
+          "name": "lecture_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deletion_request_id": {
+          "name": "deletion_request_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_provider": {
+          "name": "storage_provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "reconciliation_attempts": {
+          "name": "reconciliation_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "attached_at": {
+          "name": "attached_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "media_object_intents_lecture_idx": {
+          "name": "media_object_intents_lecture_idx",
+          "columns": [
+            {
+              "expression": "institution_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lecture_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "media_object_intents_reconciliation_idx": {
+          "name": "media_object_intents_reconciliation_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "media_object_intents_deletion_request_idx": {
+          "name": "media_object_intents_deletion_request_idx",
+          "columns": [
+            {
+              "expression": "deletion_request_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "media_object_intents_institution_id_institutions_id_fk": {
+          "name": "media_object_intents_institution_id_institutions_id_fk",
+          "tableFrom": "media_object_intents",
+          "tableTo": "institutions",
+          "columnsFrom": [
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "media_object_intents_deletion_request_fk": {
+          "name": "media_object_intents_deletion_request_fk",
+          "tableFrom": "media_object_intents",
+          "tableTo": "lecture_media_deletions",
+          "columnsFrom": [
+            "deletion_request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "media_object_intents_lecture_fk": {
+          "name": "media_object_intents_lecture_fk",
+          "tableFrom": "media_object_intents",
+          "tableTo": "lectures",
+          "columnsFrom": [
+            "lecture_id",
+            "institution_id"
+          ],
+          "columnsTo": [
+            "id",
+            "institution_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "media_object_intents_storage_key_unique": {
+          "name": "media_object_intents_storage_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "storage_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "media_object_intents_kind_valid": {
+          "name": "media_object_intents_kind_valid",
+          "value": "\"media_object_intents\".\"kind\" IN ('original', 'data_saver')"
+        },
+        "media_object_intents_status_valid": {
+          "name": "media_object_intents_status_valid",
+          "value": "\"media_object_intents\".\"status\" IN ('pending', 'attached', 'deleting', 'deleted')"
+        },
+        "media_object_intents_storage_key_not_blank": {
+          "name": "media_object_intents_storage_key_not_blank",
+          "value": "length(btrim(\"media_object_intents\".\"storage_key\")) > 0"
+        },
+        "media_object_intents_storage_provider_not_blank": {
+          "name": "media_object_intents_storage_provider_not_blank",
+          "value": "length(btrim(\"media_object_intents\".\"storage_provider\")) > 0"
+        },
+        "media_object_intents_byte_size_positive": {
+          "name": "media_object_intents_byte_size_positive",
+          "value": "\"media_object_intents\".\"byte_size\" > 0"
+        },
+        "media_object_intents_sha256_valid": {
+          "name": "media_object_intents_sha256_valid",
+          "value": "\"media_object_intents\".\"sha256\" ~ '^[0-9a-f]{64}$'"
+        },
+        "media_object_intents_reconciliation_attempts_valid": {
+          "name": "media_object_intents_reconciliation_attempts_valid",
+          "value": "\"media_object_intents\".\"reconciliation_attempts\" >= 0"
+        },
+        "media_object_intents_state_complete": {
+          "name": "media_object_intents_state_complete",
+          "value": "(\n        (\"media_object_intents\".\"status\" = 'pending' AND \"media_object_intents\".\"attached_at\" IS NULL AND \"media_object_intents\".\"deleted_at\" IS NULL)\n        OR (\"media_object_intents\".\"status\" = 'attached' AND \"media_object_intents\".\"attached_at\" IS NOT NULL AND \"media_object_intents\".\"deleted_at\" IS NULL)\n        OR (\"media_object_intents\".\"status\" = 'deleting' AND \"media_object_intents\".\"deleted_at\" IS NULL)\n        OR (\"media_object_intents\".\"status\" = 'deleted' AND \"media_object_intents\".\"deleted_at\" IS NOT NULL)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

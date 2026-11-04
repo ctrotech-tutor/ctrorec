@@ -91,7 +91,7 @@ Use real carriers and devices where possible. Browser throttling is useful for r
 | Repeated short seeks                 | Delivered bytes versus full-file size                                            |
 | Screen lock/background               | Whether capture continues, pauses, ends, or loses audio; no continuity guarantee |
 
-Current lecturer upload uses authorized sessions, fixed chunks, client SHA-256, and offset recovery. Local HTTP and production Chromium tests prove recovery from a deliberately aborted later chunk on one API instance; they do not prove real-carrier recovery, full-length phone uploads, process-crash recovery, or multi-instance staging. See `docs/lecture-uploads.md`.
+Current lecturer upload uses authorized sessions, fixed chunks, client SHA-256, and offset recovery. Local HTTP and production Chromium tests prove recovery from a deliberately aborted later chunk. A separate real HTTP test replaces the API instance between chunks and resumes through a second instance sharing one local staging root and database; scheduled staging reconciliation also has executable coverage. These do not prove real-carrier recovery, full-length phone uploads, abrupt process/host-crash recovery, production network-filesystem behavior, or durable original-object storage. See `docs/lecture-uploads.md` and `docs/upload-durability.md`.
 
 Current range/ETag support provides the server protocol needed for safe resumed downloads; it does not prove that every browser or download manager will resume on a real network. Offline playback and an offline upload queue are not implemented or claimed.
 

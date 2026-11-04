@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
 import { copyFile, link, mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
@@ -28,7 +27,9 @@ export class LocalAudioStorage implements AudioStorage {
   async save(key: string, sourcePath: string): Promise<void> {
     const destination = this.resolveKey(key)
     await mkdir(dirname(destination), { recursive: true })
-    const staging = `${destination}.${randomUUID()}.upload`
+    // Intent keys are unique per write attempt. A deterministic temp path lets
+    // lifecycle reconciliation remove a partial local write after a hard crash.
+    const staging = `${destination}.upload`
 
     try {
       await copyFile(sourcePath, staging, constants.COPYFILE_EXCL)
@@ -60,7 +61,11 @@ export class LocalAudioStorage implements AudioStorage {
   }
 
   async delete(key: string): Promise<void> {
-    await rm(this.resolveKey(key), { force: true })
+    const destination = this.resolveKey(key)
+    await Promise.all([
+      rm(destination, { force: true }),
+      rm(`${destination}.upload`, { force: true }),
+    ])
   }
 
   private resolveKey(key: string): string {

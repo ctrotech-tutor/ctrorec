@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, rm } from 'node:fs/promises'
+import { MediaRetentionError } from '@ctrorec/database'
 import { join } from 'node:path'
 import {
   BadRequestException,
@@ -75,6 +76,11 @@ export class ResumableAudioService {
       userId,
       lectureId,
     )
+    if (lecture.mediaDeletion) {
+      throw new ConflictException(
+        'The institution deleted this lecture media. Create a new lecture instead of replacing it.',
+      )
+    }
     if (lecture.lecture.status !== 'draft' || lecture.audio) {
       throw new ConflictException(
         'This lecture already has an original recording.',
@@ -108,6 +114,9 @@ export class ResumableAudioService {
         expiresAt: new Date(Date.now() + this.sessionTtlMs),
       })
     } catch (error) {
+      if (error instanceof MediaRetentionError) {
+        throw new ConflictException(error.message)
+      }
       if (isUniqueViolation(error)) {
         const concurrent = await this.repository.findActiveAudioUpload(
           lectureId,

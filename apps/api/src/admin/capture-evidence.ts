@@ -18,15 +18,17 @@ export interface CaptureEvidenceRow {
   hashingDurationMs: number | null
   uploadDurationMs: number | null
   uploadRetryCount: number | null
-  originalMediaType: string
-  originalByteSize: number
-  originalSha256: string
+  originalMediaType: string | null
+  originalByteSize: number | null
+  originalSha256: string | null
   serverRecordedAt: Date
   derivativeStatus: string | null
   derivativeAttempts: number | null
   derivativeByteSize: number | null
   derivativeProcessingStartedAt: Date | null
   derivativeCompletedAt: Date | null
+  mediaDeletionRequestedAt: Date | null
+  mediaDeletionCompletedAt: Date | null
 }
 
 const columns = [
@@ -57,6 +59,8 @@ const columns = [
   'derivative_processing_ms',
   'derivative_to_original_ratio',
   'derivative_bytes_saved',
+  'media_deletion_requested_at',
+  'media_deletion_completed_at',
 ] as const
 
 export function captureEvidenceCsv(rows: CaptureEvidenceRow[]): string {
@@ -95,8 +99,14 @@ export function captureEvidenceCsv(rows: CaptureEvidenceRow[]): string {
       row.derivativeAttempts,
       readySize,
       processingMs,
-      readySize === null ? null : (readySize / row.originalByteSize).toFixed(6),
-      readySize === null ? null : row.originalByteSize - readySize,
+      readySize === null || row.originalByteSize === null
+        ? null
+        : (readySize / row.originalByteSize).toFixed(6),
+      readySize === null || row.originalByteSize === null
+        ? null
+        : row.originalByteSize - readySize,
+      row.mediaDeletionRequestedAt,
+      row.mediaDeletionCompletedAt,
     ]
   })
   return `${[columns, ...records]

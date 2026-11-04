@@ -232,6 +232,219 @@ export const lectureAudioUploads = pgTable(
   ],
 )
 
+export const lectureMediaDeletions = pgTable(
+  'lecture_media_deletions',
+  {
+    id: uuidPrimaryKey(),
+    institutionId: uuid('institution_id').notNull(),
+    lectureId: uuid('lecture_id').notNull(),
+    requestedByMembershipId: uuid('requested_by_membership_id').notNull(),
+    reason: text('reason').notNull(),
+    originalFileName: text('original_file_name').notNull(),
+    originalMediaType: text('original_media_type').notNull(),
+    originalByteSize: bigint('original_byte_size', {
+      mode: 'number',
+    }).notNull(),
+    originalSha256: text('original_sha256').notNull(),
+    createdAt: createdAt(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    unique('lecture_media_deletions_lecture_unique').on(table.lectureId),
+    index('lecture_media_deletions_institution_idx').on(
+      table.institutionId,
+      table.createdAt,
+    ),
+    foreignKey({
+      columns: [table.institutionId],
+      foreignColumns: [institutions.id],
+      name: 'lecture_media_deletions_institution_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.lectureId, table.institutionId],
+      foreignColumns: [lectures.id, lectures.institutionId],
+      name: 'lecture_media_deletions_lecture_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.requestedByMembershipId, table.institutionId],
+      foreignColumns: [memberships.id, memberships.institutionId],
+      name: 'lecture_media_deletions_requester_fk',
+    }).onDelete('restrict'),
+    check(
+      'lecture_media_deletions_reason_valid',
+      sql`btrim(${table.reason}) = ${table.reason} AND char_length(${table.reason}) BETWEEN 1 AND 500`,
+    ),
+    check(
+      'lecture_media_deletions_original_file_name_valid',
+      sql`btrim(${table.originalFileName}) = ${table.originalFileName} AND char_length(${table.originalFileName}) BETWEEN 1 AND 255`,
+    ),
+    check(
+      'lecture_media_deletions_original_media_type_valid',
+      sql`${table.originalMediaType} IN ('audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/webm', 'audio/ogg')`,
+    ),
+    check(
+      'lecture_media_deletions_original_size_positive',
+      sql`${table.originalByteSize} > 0`,
+    ),
+    check(
+      'lecture_media_deletions_original_sha256_valid',
+      sql`${table.originalSha256} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'lecture_media_deletions_completion_valid',
+      sql`${table.completedAt} IS NULL OR ${table.completedAt} >= ${table.createdAt}`,
+    ),
+  ],
+)
+
+export const lectureMediaHolds = pgTable(
+  'lecture_media_holds',
+  {
+    id: uuidPrimaryKey(),
+    institutionId: uuid('institution_id').notNull(),
+    lectureId: uuid('lecture_id').notNull(),
+    createdByMembershipId: uuid('created_by_membership_id').notNull(),
+    reason: text('reason').notNull(),
+    createdAt: createdAt(),
+    releasedByMembershipId: uuid('released_by_membership_id'),
+    releaseReason: text('release_reason'),
+    releasedAt: timestamp('released_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('lecture_media_holds_active_lecture_unique')
+      .on(table.lectureId)
+      .where(sql`${table.releasedAt} IS NULL`),
+    index('lecture_media_holds_institution_idx').on(
+      table.institutionId,
+      table.lectureId,
+      table.createdAt,
+    ),
+    foreignKey({
+      columns: [table.institutionId],
+      foreignColumns: [institutions.id],
+      name: 'lecture_media_holds_institution_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.lectureId, table.institutionId],
+      foreignColumns: [lectures.id, lectures.institutionId],
+      name: 'lecture_media_holds_lecture_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.createdByMembershipId, table.institutionId],
+      foreignColumns: [memberships.id, memberships.institutionId],
+      name: 'lecture_media_holds_creator_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.releasedByMembershipId, table.institutionId],
+      foreignColumns: [memberships.id, memberships.institutionId],
+      name: 'lecture_media_holds_releaser_fk',
+    }).onDelete('restrict'),
+    check(
+      'lecture_media_holds_reason_valid',
+      sql`btrim(${table.reason}) = ${table.reason} AND char_length(${table.reason}) BETWEEN 1 AND 500`,
+    ),
+    check(
+      'lecture_media_holds_release_complete',
+      sql`(
+        (${table.releasedAt} IS NULL AND ${table.releasedByMembershipId} IS NULL AND ${table.releaseReason} IS NULL)
+        OR (${table.releasedAt} IS NOT NULL AND ${table.releasedAt} >= ${table.createdAt} AND ${table.releasedByMembershipId} IS NOT NULL AND btrim(${table.releaseReason}) = ${table.releaseReason} AND char_length(${table.releaseReason}) BETWEEN 1 AND 500)
+      )`,
+    ),
+  ],
+)
+
+export const mediaObjectIntents = pgTable(
+  'media_object_intents',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
+    institutionId: uuid('institution_id')
+      .notNull()
+      .references(() => institutions.id, { onDelete: 'restrict' }),
+    lectureId: uuid('lecture_id').notNull(),
+    deletionRequestId: uuid('deletion_request_id'),
+    kind: text('kind').notNull(),
+    storageProvider: text('storage_provider').notNull(),
+    storageKey: text('storage_key').notNull().unique(),
+    byteSize: bigint('byte_size', { mode: 'number' }).notNull(),
+    sha256: text('sha256').notNull(),
+    status: text('status').notNull().default('pending'),
+    reconciliationAttempts: integer('reconciliation_attempts')
+      .notNull()
+      .default(0),
+    attachedAt: timestamp('attached_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('media_object_intents_lecture_idx').on(
+      table.institutionId,
+      table.lectureId,
+    ),
+    index('media_object_intents_reconciliation_idx').on(
+      table.status,
+      table.updatedAt,
+    ),
+    index('media_object_intents_deletion_request_idx').on(
+      table.deletionRequestId,
+    ),
+    foreignKey({
+      columns: [table.deletionRequestId],
+      foreignColumns: [lectureMediaDeletions.id],
+      name: 'media_object_intents_deletion_request_fk',
+    }).onDelete('restrict'),
+    foreignKey({
+      columns: [table.lectureId, table.institutionId],
+      foreignColumns: [lectures.id, lectures.institutionId],
+      name: 'media_object_intents_lecture_fk',
+    }).onDelete('restrict'),
+    check(
+      'media_object_intents_kind_valid',
+      sql`${table.kind} IN ('original', 'data_saver')`,
+    ),
+    check(
+      'media_object_intents_status_valid',
+      sql`${table.status} IN ('pending', 'attached', 'deleting', 'deleted')`,
+    ),
+    check(
+      'media_object_intents_storage_key_not_blank',
+      sql`length(btrim(${table.storageKey})) > 0`,
+    ),
+    check(
+      'media_object_intents_storage_provider_not_blank',
+      sql`length(btrim(${table.storageProvider})) > 0`,
+    ),
+    check(
+      'media_object_intents_byte_size_positive',
+      sql`${table.byteSize} > 0`,
+    ),
+    check(
+      'media_object_intents_sha256_valid',
+      sql`${table.sha256} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'media_object_intents_reconciliation_attempts_valid',
+      sql`${table.reconciliationAttempts} >= 0`,
+    ),
+    check(
+      'media_object_intents_state_complete',
+      sql`(
+        (${table.status} = 'pending' AND ${table.attachedAt} IS NULL AND ${table.deletedAt} IS NULL)
+        OR (${table.status} = 'attached' AND ${table.attachedAt} IS NOT NULL AND ${table.deletedAt} IS NULL)
+        OR (${table.status} = 'deleting' AND ${table.deletedAt} IS NULL)
+        OR (${table.status} = 'deleted' AND ${table.deletedAt} IS NOT NULL)
+      )`,
+    ),
+  ],
+)
+
 export const lectureAudio = pgTable(
   'lecture_audio',
   {
@@ -313,8 +526,8 @@ export const lectureAudioCaptures = pgTable(
     unique('lecture_audio_captures_client_unique').on(table.clientCaptureId),
     foreignKey({
       columns: [table.lectureId, table.institutionId],
-      foreignColumns: [lectureAudio.lectureId, lectureAudio.institutionId],
-      name: 'lecture_audio_captures_original_fk',
+      foreignColumns: [lectures.id, lectures.institutionId],
+      name: 'lecture_audio_captures_lecture_fk',
     }).onDelete('restrict'),
     check(
       'lecture_audio_captures_mime_valid',

@@ -1,4 +1,15 @@
-import type { Database, DatabaseTransaction } from '@ctrorec/database'
+import {
+  assertLectureMediaWriteAllowed,
+  attachMediaObjectIntent,
+  createMediaObjectIntent,
+  markMediaObjectDeleted,
+  newMediaObjectIntentId,
+  requestMediaObjectDeletion,
+  type Database,
+  type DatabaseTransaction,
+  type MediaObjectIntent,
+  type NewMediaObjectIntent,
+} from '@ctrorec/database'
 import {
   academicTerms,
   courseOfferings,
@@ -9,6 +20,7 @@ import {
   lectureAudioCaptures,
   lectureAudioDerivatives,
   lectureAudioUploads,
+  lectureMediaDeletions,
   lecturerAssignments,
   lectures,
   membershipRoles,
@@ -22,6 +34,7 @@ export type Lecture = typeof lectures.$inferSelect
 export type LectureAudio = typeof lectureAudio.$inferSelect
 export type LectureAudioDerivative = typeof lectureAudioDerivatives.$inferSelect
 export type LectureAudioUpload = typeof lectureAudioUploads.$inferSelect
+export type LectureMediaDeletion = typeof lectureMediaDeletions.$inferSelect
 export class AudioUploadStateChangedError extends Error {}
 type CourseOffering = typeof courseOfferings.$inferSelect
 type Course = typeof courses.$inferSelect
@@ -39,6 +52,7 @@ export interface LectureContext extends OfferingContext {
   lecture: Lecture
   audio: LectureAudio | null
   dataSaver: LectureAudioDerivative | null
+  mediaDeletion: LectureMediaDeletion | null
 }
 
 export interface OfferingAccess {
@@ -50,6 +64,26 @@ export interface OfferingAccess {
 @Injectable()
 export class LecturesRepository {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
+
+  newMediaObjectIntentId(): Promise<string> {
+    return newMediaObjectIntentId(this.db)
+  }
+
+  createMediaObjectIntent(
+    value: NewMediaObjectIntent,
+  ): Promise<MediaObjectIntent> {
+    return createMediaObjectIntent(this.db, value)
+  }
+
+  requestMediaObjectDeletion(
+    intentId: string,
+  ): Promise<MediaObjectIntent | null> {
+    return requestMediaObjectDeletion(this.db, intentId)
+  }
+
+  async markMediaObjectDeleted(intentId: string): Promise<void> {
+    await markMediaObjectDeleted(this.db, intentId)
+  }
 
   async listTeachingOfferings(
     userId: string,
@@ -254,18 +288,35 @@ export class LecturesRepository {
       return null
     }
 
-    const [audio] = await this.db
-      .select()
-      .from(lectureAudio)
-      .where(
-        and(
-          eq(lectureAudio.lectureId, row.lecture.id),
-          eq(lectureAudio.institutionId, row.lecture.institutionId),
-        ),
-      )
-      .limit(1)
+    const [[audio], [mediaDeletion]] = await Promise.all([
+      this.db
+        .select()
+        .from(lectureAudio)
+        .where(
+          and(
+            eq(lectureAudio.lectureId, row.lecture.id),
+            eq(lectureAudio.institutionId, row.lecture.institutionId),
+          ),
+        )
+        .limit(1),
+      this.db
+        .select()
+        .from(lectureMediaDeletions)
+        .where(
+          and(
+            eq(lectureMediaDeletions.lectureId, row.lecture.id),
+            eq(lectureMediaDeletions.institutionId, row.lecture.institutionId),
+          ),
+        )
+        .limit(1),
+    ])
     if (!audio) {
-      return { ...row, audio: null, dataSaver: null }
+      return {
+        ...row,
+        audio: null,
+        dataSaver: null,
+        mediaDeletion: mediaDeletion ?? null,
+      }
     }
     const [dataSaver] = await this.db
       .select()
@@ -278,7 +329,12 @@ export class LecturesRepository {
         ),
       )
       .limit(1)
-    return { ...row, audio, dataSaver: dataSaver ?? null }
+    return {
+      ...row,
+      audio,
+      dataSaver: dataSaver ?? null,
+      mediaDeletion: mediaDeletion ?? null,
+    }
   }
 
   async listLectures(offeringId: string): Promise<LectureContext[]> {
@@ -328,6 +384,18 @@ export class LecturesRepository {
           rows.map((row) => row.lecture.id),
         ),
       )
+    const deletionRows = await this.db
+      .select()
+      .from(lectureMediaDeletions)
+      .where(
+        inArray(
+          lectureMediaDeletions.lectureId,
+          rows.map((row) => row.lecture.id),
+        ),
+      )
+    const deletionByLecture = new Map(
+      deletionRows.map((deletion) => [deletion.lectureId, deletion]),
+    )
     const audioByLecture = new Map(
       audioRows.map((audio) => [audio.lectureId, audio]),
     )
@@ -353,6 +421,7 @@ export class LecturesRepository {
       ...row,
       audio: audioByLecture.get(row.lecture.id) ?? null,
       dataSaver: dataSaverByLecture.get(row.lecture.id) ?? null,
+      mediaDeletion: deletionByLecture.get(row.lecture.id) ?? null,
     }))
   }
 
@@ -470,14 +539,21 @@ export class LecturesRepository {
   async createAudioUpload(
     upload: typeof lectureAudioUploads.$inferInsert,
   ): Promise<LectureAudioUpload> {
-    const [created] = await this.db
-      .insert(lectureAudioUploads)
-      .values(upload)
-      .returning()
-    if (!created) {
-      throw new Error('The audio upload session was not returned.')
-    }
-    return created
+    return this.db.transaction(async (transaction) => {
+      await assertLectureMediaWriteAllowed(
+        transaction,
+        upload.institutionId,
+        upload.lectureId,
+      )
+      const [created] = await transaction
+        .insert(lectureAudioUploads)
+        .values(upload)
+        .returning()
+      if (!created) {
+        throw new Error('The audio upload session was not returned.')
+      }
+      return created
+    })
   }
 
   async findActiveAudioUpload(
@@ -532,6 +608,58 @@ export class LecturesRepository {
         ),
       )
       .returning()
+  }
+
+  async expireAudioUploadsBefore(
+    now: Date,
+    batchSize: number,
+  ): Promise<number> {
+    return this.db.transaction(async (transaction) => {
+      const candidates = await transaction
+        .select({ id: lectureAudioUploads.id })
+        .from(lectureAudioUploads)
+        .where(
+          and(
+            eq(lectureAudioUploads.status, 'active'),
+            lte(lectureAudioUploads.expiresAt, now),
+          ),
+        )
+        .orderBy(asc(lectureAudioUploads.expiresAt))
+        .limit(batchSize)
+        .for('update', { skipLocked: true })
+      if (candidates.length === 0) {
+        return 0
+      }
+      const expired = await transaction
+        .update(lectureAudioUploads)
+        .set({ status: 'expired' })
+        .where(
+          and(
+            inArray(
+              lectureAudioUploads.id,
+              candidates.map((candidate) => candidate.id),
+            ),
+            eq(lectureAudioUploads.status, 'active'),
+          ),
+        )
+        .returning({ id: lectureAudioUploads.id })
+      return expired.length
+    })
+  }
+
+  async findAudioUploadState(
+    uploadId: string,
+  ): Promise<Pick<LectureAudioUpload, 'id' | 'status' | 'updatedAt'> | null> {
+    const [upload] = await this.db
+      .select({
+        id: lectureAudioUploads.id,
+        status: lectureAudioUploads.status,
+        updatedAt: lectureAudioUploads.updatedAt,
+      })
+      .from(lectureAudioUploads)
+      .where(eq(lectureAudioUploads.id, uploadId))
+      .limit(1)
+    return upload ?? null
   }
 
   async withAudioUploadLock<T>(
@@ -613,6 +741,7 @@ export class LecturesRepository {
 
   async insertAudio(
     audio: typeof lectureAudio.$inferInsert,
+    mediaIntentId: string,
     enqueue: (
       transaction: DatabaseTransaction,
       derivative: LectureAudioDerivative,
@@ -624,6 +753,11 @@ export class LecturesRepository {
     >,
   ): Promise<{ audio: LectureAudio; dataSaver: LectureAudioDerivative }> {
     return this.db.transaction(async (transaction) => {
+      await assertLectureMediaWriteAllowed(
+        transaction,
+        audio.institutionId,
+        audio.lectureId,
+      )
       const [stored] = await transaction
         .insert(lectureAudio)
         .values(audio)
@@ -631,6 +765,13 @@ export class LecturesRepository {
       if (!stored) {
         throw new Error('The lecture audio record was not returned.')
       }
+      await attachMediaObjectIntent(transaction, mediaIntentId, {
+        kind: 'original',
+        storageProvider: stored.storageProvider,
+        storageKey: stored.storageKey,
+        byteSize: stored.byteSize,
+        sha256: stored.sha256,
+      })
       if (capture) {
         await transaction.insert(lectureAudioCaptures).values({
           ...capture,

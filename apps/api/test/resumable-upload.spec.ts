@@ -1,9 +1,17 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   assembleUpload,
+  quarantineUploadPath,
   stageUploadChunk,
   uploadChunkPath,
 } from '../src/lectures/resumable-upload.js'
@@ -36,6 +44,23 @@ describe('resumable upload files', () => {
     await writeFile(changed, 'changed')
     await stageUploadChunk(changed, part)
     expect(await readFile(part, 'utf8')).toBe('changed')
+  })
+
+  it('quarantines a path before removal and tolerates a concurrent winner', async () => {
+    const source = join(directory, 'sessions', 'upload-id')
+    await mkdir(source, { recursive: true })
+    await writeFile(join(source, '0.part'), 'audio')
+
+    const outcomes = await Promise.all([
+      quarantineUploadPath(directory, source),
+      quarantineUploadPath(directory, source),
+    ])
+    expect(outcomes.sort()).toEqual([false, true])
+    await expect(readFile(join(source, '0.part'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
+    expect(await quarantineUploadPath(directory, source)).toBe(false)
+    expect(await readdir(join(directory, 'trash'))).toEqual([])
   })
 
   it('assembles ordered chunks and removes an incomplete result', async () => {

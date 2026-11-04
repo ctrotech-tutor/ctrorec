@@ -1,6 +1,7 @@
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
+import type { NewMediaObjectIntent } from '@ctrorec/database'
 import type { AudioStorage } from '@ctrorec/media'
 import type { ConfigService } from '@nestjs/config'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -55,14 +56,32 @@ const claimed = {
   },
 } as unknown as ClaimedDataSaver
 
+let pendingIntent: NewMediaObjectIntent | undefined
 const repository = {
   claim: vi.fn(),
   markReady: vi.fn(),
   markFailed: vi.fn(),
+  newMediaObjectIntentId: vi.fn(
+    async () => '019a1000-0000-7000-8000-0000000000e1',
+  ),
+  createMediaObjectIntent: vi.fn(async (value: NewMediaObjectIntent) => {
+    pendingIntent = value
+    return value
+  }),
+  requestMediaObjectDeletion: vi.fn(async () =>
+    pendingIntent?.storageKey
+      ? {
+          storageProvider: pendingIntent.storageProvider,
+          storageKey: pendingIntent.storageKey,
+        }
+      : null,
+  ),
+  markMediaObjectDeleted: vi.fn(async () => undefined),
 }
+const save = vi.fn(async (_key: string, _sourcePath: string) => undefined)
 const storage: AudioStorage = {
   provider: 'test',
-  save: vi.fn(async () => undefined),
+  save,
   verify: vi.fn(async () => undefined),
   open: vi.fn(async () => Readable.from([Buffer.alloc(1_000)])),
   delete: vi.fn(async () => undefined),
@@ -83,6 +102,7 @@ const service = new DataSaverService(
 
 beforeEach(() => {
   vi.clearAllMocks()
+  pendingIntent = undefined
 })
 
 describe('data-saver retry boundaries', () => {
@@ -96,7 +116,7 @@ describe('data-saver retry boundaries', () => {
     expect(repository.markReady).not.toHaveBeenCalled()
   })
 
-  it('does not delete a newer object when a stale attempt loses its transition', async () => {
+  it('deletes only the stale attempt’s unique object when its transition loses', async () => {
     repository.claim.mockResolvedValue(claimed)
     repository.markReady.mockResolvedValue(false)
     repository.markFailed.mockResolvedValue(false)
@@ -109,14 +129,38 @@ describe('data-saver retry boundaries', () => {
       job.derivativeId,
       processingStartedAt,
       expect.objectContaining({ byteSize: 500 }),
+      expect.any(String),
     )
     expect(repository.markFailed).toHaveBeenCalledWith(
       job.derivativeId,
       processingStartedAt,
     )
-    // Only the pre-save replacement cleanup is allowed. A failed stale
-    // transition must not issue the compensating delete for the current row.
+    const attemptKey = save.mock.calls[0]?.[0]
+    expect(attemptKey).toBeDefined()
+    expect(attemptKey).not.toBe(
+      `${claimed.audio.institutionId}/${job.lectureId}/${job.derivativeId}.m4a`,
+    )
     expect(storage.delete).toHaveBeenCalledTimes(1)
+    expect(storage.delete).toHaveBeenCalledWith(attemptKey)
+  })
+
+  it('compensates an object even when the storage save response is lost', async () => {
+    repository.claim.mockResolvedValue(claimed)
+    save.mockRejectedValueOnce(new Error('Lost provider response'))
+
+    await expect(
+      service.process(job, new AbortController().signal),
+    ).rejects.toThrow('Lost provider response')
+
+    expect(repository.createMediaObjectIntent).toHaveBeenCalledTimes(1)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(
+      repository.createMediaObjectIntent.mock.invocationCallOrder[0],
+    ).toBeLessThan(save.mock.invocationCallOrder[0]!)
+    expect(storage.delete).toHaveBeenCalledWith(save.mock.calls[0]?.[0])
+    expect(repository.markMediaObjectDeleted).toHaveBeenCalledWith(
+      pendingIntent?.id,
+    )
   })
 })
 

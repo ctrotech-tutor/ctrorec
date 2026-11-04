@@ -31,6 +31,8 @@ const row: CaptureEvidenceRow = {
   derivativeByteSize: 10_000,
   derivativeProcessingStartedAt: new Date('2026-11-04T09:05:03.000Z'),
   derivativeCompletedAt: new Date('2026-11-04T09:05:05.000Z'),
+  mediaDeletionRequestedAt: null,
+  mediaDeletionCompletedAt: null,
 }
 
 describe('capture evidence CSV', () => {
@@ -67,6 +69,6 @@ describe('capture evidence CSV', () => {
       },
     ])
 
-    expect(csv.trimEnd().endsWith(',,,,')).toBe(true)
+    expect(csv.trimEnd().endsWith(',,,,,,')).toBe(true)
   })
 })

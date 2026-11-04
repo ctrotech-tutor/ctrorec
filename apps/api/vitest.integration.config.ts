@@ -18,6 +18,7 @@ export default defineConfig({
       AUDIO_UPLOAD_TEMP_DIR: join(audioTestRoot, 'uploads'),
       AUDIO_MAX_UPLOAD_BYTES: '1048576',
       AUDIO_UPLOAD_CHUNK_BYTES: '16384',
+      AUDIO_UPLOAD_RECONCILIATION_ENABLED: 'false',
       AUTH_COOKIE_SECURE: 'true',
       DATABASE_URL: testDatabaseUrl,
       NODE_ENV: 'test',

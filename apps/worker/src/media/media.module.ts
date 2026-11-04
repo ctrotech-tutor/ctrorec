@@ -5,12 +5,14 @@ import { QueueModule } from '../queue/queue.module.js'
 import { DataSaverRepository } from './data-saver.repository.js'
 import { DataSaverService } from './data-saver.service.js'
 import { AUDIO_STORAGE } from './media.constants.js'
+import { MediaReconciliationService } from './media-reconciliation.service.js'
 
 @Module({
   imports: [QueueModule],
   providers: [
     DataSaverRepository,
     DataSaverService,
+    MediaReconciliationService,
     {
       provide: AUDIO_STORAGE,
       inject: [ConfigService],

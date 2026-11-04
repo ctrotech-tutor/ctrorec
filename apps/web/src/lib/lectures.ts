@@ -34,6 +34,11 @@ export interface LectureAudio {
   dataSaver: DataSaverAudio | null
 }
 
+export interface LectureMediaDeletion {
+  requestedAt: string
+  completedAt: string | null
+}
+
 export interface Lecture {
   id: string
   title: string
@@ -42,6 +47,7 @@ export interface Lecture {
   status: string
   publishedAt: string | null
   audio: LectureAudio | null
+  mediaDeletion: LectureMediaDeletion | null
 }
 
 export interface AudioUploadSession {
@@ -472,7 +478,17 @@ function isLecture(value: unknown): value is Lecture {
     typeof value.occurredAt === 'string' &&
     typeof value.status === 'string' &&
     (typeof value.publishedAt === 'string' || value.publishedAt === null) &&
-    (value.audio === null || isLectureAudio(value.audio))
+    (value.audio === null || isLectureAudio(value.audio)) &&
+    (value.mediaDeletion === null ||
+      isLectureMediaDeletion(value.mediaDeletion))
+  )
+}
+
+function isLectureMediaDeletion(value: unknown): value is LectureMediaDeletion {
+  return (
+    isRecord(value) &&
+    typeof value.requestedAt === 'string' &&
+    (typeof value.completedAt === 'string' || value.completedAt === null)
   )
 }
 

@@ -71,6 +71,20 @@
       "when": 1793817552901,
       "tag": "0009_omniscient_ted_forrester",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793826935356,
+      "tag": "0010_reflective_kitty_pryde",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793832092268,
+      "tag": "0011_wandering_shriek",
+      "breakpoints": true
     }
   ]
 }
