@@ -24,6 +24,7 @@ import { ApiBody, ApiConsumes } from '@nestjs/swagger'
 import type { Request, Response } from 'express'
 import { LectureWriteGuard } from './lecture-write.guard.js'
 import {
+  CompleteAudioUploadDto,
   CreateAudioUploadDto,
   CreateLectureDto,
   UpdateLectureDto,
@@ -151,6 +152,7 @@ export class LecturesController {
   }
 
   @Post('lectures/:lectureId/audio/uploads/:uploadId/complete')
+  @ApiBody({ type: CompleteAudioUploadDto, required: false })
   @UseGuards(LectureWriteGuard)
   @HttpCode(200)
   @Header('Cache-Control', 'private, no-store')
@@ -158,8 +160,14 @@ export class LecturesController {
     @CurrentUser('id') userId: string,
     @Param('lectureId') lectureId: string,
     @Param('uploadId') uploadId: string,
+    @Body() body: CompleteAudioUploadDto,
   ) {
-    return this.resumableAudio.complete(userId, lectureId, uploadId)
+    return this.resumableAudio.complete(
+      userId,
+      lectureId,
+      uploadId,
+      body?.capture,
+    )
   }
 
   @Delete('lectures/:lectureId/audio/uploads/:uploadId')

@@ -6,6 +6,7 @@ import {
   enrollments,
   institutions,
   lectureAudio,
+  lectureAudioCaptures,
   lectureAudioDerivatives,
   lectureAudioUploads,
   lecturerAssignments,
@@ -617,6 +618,10 @@ export class LecturesRepository {
       derivative: LectureAudioDerivative,
     ) => Promise<void>,
     completedUploadId?: string,
+    capture?: Omit<
+      typeof lectureAudioCaptures.$inferInsert,
+      'lectureId' | 'institutionId'
+    >,
   ): Promise<{ audio: LectureAudio; dataSaver: LectureAudioDerivative }> {
     return this.db.transaction(async (transaction) => {
       const [stored] = await transaction
@@ -625,6 +630,13 @@ export class LecturesRepository {
         .returning()
       if (!stored) {
         throw new Error('The lecture audio record was not returned.')
+      }
+      if (capture) {
+        await transaction.insert(lectureAudioCaptures).values({
+          ...capture,
+          lectureId: stored.lectureId,
+          institutionId: stored.institutionId,
+        })
       }
       const [derivative] = await transaction
         .insert(lectureAudioDerivatives)

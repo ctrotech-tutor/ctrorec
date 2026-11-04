@@ -1,5 +1,9 @@
 import type { Database } from '@ctrorec/database'
-import { lectureAudio, lectureAudioDerivatives } from '@ctrorec/database/schema'
+import {
+  lectureAudio,
+  lectureAudioCaptures,
+  lectureAudioDerivatives,
+} from '@ctrorec/database/schema'
 import type { DataSaverJob } from '@ctrorec/media'
 import { Inject, Injectable } from '@nestjs/common'
 import { and, eq, sql } from 'drizzle-orm'
@@ -11,6 +15,7 @@ type Derivative = typeof lectureAudioDerivatives.$inferSelect
 export interface ClaimedDataSaver {
   audio: LectureAudio
   derivative: Derivative & { processingStartedAt: Date }
+  captureDurationMs: number | null
 }
 
 export interface ReadyDataSaver {
@@ -27,7 +32,11 @@ export class DataSaverRepository {
   async claim(job: DataSaverJob): Promise<ClaimedDataSaver | null> {
     return this.db.transaction(async (transaction) => {
       const [existing] = await transaction
-        .select({ derivative: lectureAudioDerivatives, audio: lectureAudio })
+        .select({
+          derivative: lectureAudioDerivatives,
+          audio: lectureAudio,
+          captureDurationMs: lectureAudioCaptures.durationMs,
+        })
         .from(lectureAudioDerivatives)
         .innerJoin(
           lectureAudio,
@@ -37,6 +46,13 @@ export class DataSaverRepository {
               lectureAudioDerivatives.institutionId,
               lectureAudio.institutionId,
             ),
+          ),
+        )
+        .leftJoin(
+          lectureAudioCaptures,
+          and(
+            eq(lectureAudioCaptures.lectureId, lectureAudio.lectureId),
+            eq(lectureAudioCaptures.institutionId, lectureAudio.institutionId),
           ),
         )
         .where(
@@ -77,6 +93,7 @@ export class DataSaverRepository {
           ...claimed,
           processingStartedAt: claimed.processingStartedAt,
         },
+        captureDurationMs: existing.captureDurationMs,
       }
     })
   }

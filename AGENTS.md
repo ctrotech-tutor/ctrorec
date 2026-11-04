@@ -14,7 +14,7 @@ Audio-first, institution-controlled lecture access. Keep the original recording 
 - PostgreSQL integration tests: `pnpm test:integration` with a guarded `TEST_DATABASE_URL` ending in `_test`
 - Guarded browser-database reset: `pnpm db:reset:test`; never point this at development or production data
 
-Use the Node version in `.nvmrc` and the pnpm version in `package.json`. FFmpeg is required for media unit tests, the worker, CI, and browser integration tests.
+Use the Node version in `.nvmrc` and the pnpm version in `package.json`. FFmpeg is required for media unit tests, the worker, CI, and browser integration tests. FFprobe is also required by the API for audio-only container inspection; configure `FFPROBE_BIN` when it is not on `PATH`.
 
 ## Boundaries
 
@@ -31,12 +31,16 @@ Use the Node version in `.nvmrc` and the pnpm version in `package.json`. FFmpeg 
 - Keep original publication and playback independent of derivative processing. Commit original metadata, derivative state, and the pg-boss job in one transaction; never transcode in an HTTP request. Workers must honor cancellation, verify source/destination integrity, and expose only complete derivatives.
 - Data-saver is a derived copy, not the source of truth. Do not tighten its encoding profile without the capture/listening evidence in `docs/media-evidence.md`. Range support and resumable upload sessions are separate from offline playback; do not claim offline support without separate evidence.
 - Resumable uploads must preserve fresh course authorization, offset/checksum validation, expiry/cancellation, orphan-chunk reconciliation, and atomic/idempotent completion. Local chunk staging is single-instance; do not assume it works across a multi-instance deployment. See `docs/lecture-uploads.md`.
+- Browser capture is foreground, audio-only, consent-attested, and best-effort recoverable through IndexedDB. Preserve original recorder chunks and independent duration accounting. Never infer background recording, offline upload, or browser/OS termination recovery from reload tests. See `docs/lecture-capture.md`.
+- Capture evidence is operational metadata, not a private-content or device-fingerprinting channel. Correlate the visible capture UUID with human field observations; keep CSV exports fresh-admin, tenant-scoped, bounded, spreadsheet-safe, and free of student rosters, storage keys, and audio URLs. See `docs/field-pilot.md`.
 - The Cloudinary adapter is an opt-in candidate. Contract tests and the synthetic live runner do not establish provider adoption, institutional revocation, real-network behavior, deletion completeness, or unit economics. Never expose `CLOUDINARY_URL` or server-side signed download URLs to the browser.
 - Use synthetic or explicitly consented audio in tests. Do not introduce real student recordings, unapproved media analysis, or external-model training into test and development workflows.
 - PostgreSQL 18 native `uuidv7()` is intentional. `updated_at` is ORM-managed, so administrative SQL must maintain it explicitly.
 - Use standard PostgreSQL and application-owned authentication. Do not add vendor-coupled identity.
 - Authentication is owned by Nest and `@nestjs/authentication`; keep routes protected by default and mark only intentional public routes with `@Public()`.
-- Never store or log raw session cookies or passwords. Persist only the authentication library's hashed session identifiers and credential hashes. Reload an active user on every session-backed request.
+- Never store or log raw session cookies or passwords. Persist only the authentication library's hashed session identifiers and credential hashes. Reload an active user on every session-backed request and reject stale `credentials_version` snapshots; reset must increment that version while deleting sessions.
+- Treat invitation and recovery tokens as bearer credentials. Store only hashes, keep them out of request-target URLs and query caches, bound expiry and attempts, and make consumption transactional. Recovery jobs carry only request UUIDs; workers rotate raw tokens on retry and never log them. Invitation acceptance is not account recovery or email verification.
+- Account recovery is owner-email based and global, never an institution-admin operation. Keep its generic anti-enumeration response, persistent per-email throttle, transactional session/other-link revocation, and no-automatic-session behavior. SMTP is disabled by default; local catcher evidence is not external deliverability. Invitation links remain manually delivered.
 - Keep Secure cookies enabled outside explicit local HTTP testing. `WEB_ORIGIN` must match the real browser origin; same-origin web proxying does not replace CSRF or authorization checks.
 - Nest constructor dependencies that are otherwise only TypeScript types may need explicit `@Inject(Token)`. Do not let a type-import autofix silently remove decorator metadata and break runtime injection.
 - The Start `/api/$` server route is a transport proxy, not a trust boundary. Strip spoofable forwarding headers, preserve authentication cookies, and configure exact trusted proxy hops only when direct API access is network-restricted.
@@ -56,5 +60,6 @@ Before changing framework behavior, consult the current official documentation a
 - pg-boss: https://pgboss.io
 - Vite: https://vite.dev/guide
 - Playwright: https://playwright.dev/docs/intro
+- Nodemailer SMTP: https://nodemailer.com/smtp
 
 Use current stable, compatible versions. Pin exactly what has been installed and verified; do not blindly jump to a new major when required tooling does not support it.

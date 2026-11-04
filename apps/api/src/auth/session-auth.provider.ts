@@ -18,7 +18,20 @@ export class SessionAuth extends SessionCookieProvider<AuthUser> {
     registry.registerProvider(this)
   }
 
-  validate(session: SessionRecord): Promise<AuthUser | null> {
-    return this.usersRepository.findById(session.userId)
+  async validate(session: SessionRecord): Promise<AuthUser | null> {
+    const user = await this.usersRepository.findById(session.userId)
+    if (!user) {
+      return null
+    }
+    const snapshot = session.metadata?.credentialsVersion
+    const credentialsVersion =
+      snapshot === undefined
+        ? 0
+        : typeof snapshot === 'number' &&
+            Number.isInteger(snapshot) &&
+            snapshot >= 0
+          ? snapshot
+          : -1
+    return credentialsVersion === user.credentialsVersion ? user : null
   }
 }

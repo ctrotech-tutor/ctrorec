@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
+import { LectureCapture } from './lecture-capture'
 import {
   courseKeys,
   courseLecturesOptions,
@@ -14,7 +15,7 @@ import {
   type Lecture,
 } from '../lib/lectures'
 
-export function CourseWorkspace() {
+export function CourseWorkspace({ ownerId }: Readonly<{ ownerId: string }>) {
   const queryClient = useQueryClient()
   const offerings = useQuery(courseOfferingsOptions)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -82,6 +83,7 @@ export function CourseWorkspace() {
           error={lectures.isError ? lectures.error.message : undefined}
           lectures={lectures.data}
           offering={offering}
+          ownerId={ownerId}
           pending={lectures.isPending}
           onRefresh={() => refreshLectures(offering.id)}
         />
@@ -92,12 +94,14 @@ export function CourseWorkspace() {
 
 function OfferingLectures({
   offering,
+  ownerId,
   lectures,
   pending,
   error,
   onRefresh,
 }: Readonly<{
   offering: CourseOffering
+  ownerId: string
   lectures: Lecture[] | undefined
   pending: boolean
   error: string | undefined
@@ -138,6 +142,7 @@ function OfferingLectures({
                 offering.access.canManage && offering.status === 'active'
               }
               lecture={lecture}
+              ownerId={ownerId}
               onRefresh={onRefresh}
             />
           ))}
@@ -276,16 +281,19 @@ function LectureDetailsForm({
 
 function LectureItem({
   lecture,
+  ownerId,
   canManage,
   onRefresh,
 }: Readonly<{
   lecture: Lecture
+  ownerId: string
   canManage: boolean
   onRefresh: () => Promise<void>
 }>) {
   const [uploadProgress, setUploadProgress] =
     useState<AudioUploadProgress | null>(null)
   const [editing, setEditing] = useState(false)
+  const [intakeMode, setIntakeMode] = useState<'record' | 'upload'>('record')
   const upload = useMutation({
     mutationFn: uploadLectureAudio,
     onSuccess: onRefresh,
@@ -441,50 +449,78 @@ function LectureItem({
           </p>
         </div>
       ) : canManage ? (
-        <form className="upload-form" onSubmit={submitUpload}>
-          <label>
-            <span>Original audio</span>
-            <input
-              accept="audio/mpeg,audio/wav,audio/mp4,.mp3,.wav,.m4a"
-              disabled={upload.isPending}
-              name="audio"
-              onChange={() => upload.reset()}
-              required
-              type="file"
-            />
-          </label>
-          <button
-            className="secondary-button"
-            disabled={upload.isPending}
-            type="submit"
-          >
-            {upload.isPending ? 'Uploading…' : 'Upload recording'}
-          </button>
-          {uploadProgress ? (
-            <div className="upload-progress" role="status">
-              <span>{uploadProgressLabel(uploadProgress)}</span>
-              <progress
-                aria-label="Upload progress"
-                max={uploadProgress.totalBytes}
-                value={uploadProgress.receivedBytes}
-              />
-            </div>
-          ) : null}
-          {upload.isError ? (
+        <div className="audio-intake">
+          <div className="intake-switch" aria-label="Original audio source">
             <button
-              className="button-link"
-              disabled={clearUpload.isPending}
-              onClick={() => clearUpload.mutate()}
+              aria-pressed={intakeMode === 'record'}
+              onClick={() => setIntakeMode('record')}
               type="button"
             >
-              {clearUpload.isPending ? 'Clearing…' : 'Clear interrupted upload'}
+              Record lecture
             </button>
-          ) : null}
-          <p className="data-note">
-            MP3, WAV, or M4A · up to 256 MiB · interrupted uploads resume from
-            the last confirmed chunk
-          </p>
-        </form>
+            <button
+              aria-pressed={intakeMode === 'upload'}
+              onClick={() => setIntakeMode('upload')}
+              type="button"
+            >
+              Upload audio
+            </button>
+          </div>
+          {intakeMode === 'record' ? (
+            <LectureCapture
+              lectureId={lecture.id}
+              ownerId={ownerId}
+              onSaved={onRefresh}
+            />
+          ) : (
+            <form className="upload-form" onSubmit={submitUpload}>
+              <label>
+                <span>Original audio</span>
+                <input
+                  accept="audio/mpeg,audio/wav,audio/mp4,audio/webm,audio/ogg,.mp3,.wav,.m4a,.webm,.ogg"
+                  disabled={upload.isPending}
+                  name="audio"
+                  onChange={() => upload.reset()}
+                  required
+                  type="file"
+                />
+              </label>
+              <button
+                className="secondary-button"
+                disabled={upload.isPending}
+                type="submit"
+              >
+                {upload.isPending ? 'Uploading…' : 'Upload recording'}
+              </button>
+              {uploadProgress ? (
+                <div className="upload-progress" role="status">
+                  <span>{uploadProgressLabel(uploadProgress)}</span>
+                  <progress
+                    aria-label="Upload progress"
+                    max={uploadProgress.totalBytes}
+                    value={uploadProgress.receivedBytes}
+                  />
+                </div>
+              ) : null}
+              {upload.isError ? (
+                <button
+                  className="button-link"
+                  disabled={clearUpload.isPending}
+                  onClick={() => clearUpload.mutate()}
+                  type="button"
+                >
+                  {clearUpload.isPending
+                    ? 'Clearing…'
+                    : 'Clear interrupted upload'}
+                </button>
+              ) : null}
+              <p className="data-note">
+                MP3, WAV, M4A, WebM, or Ogg · up to 256 MiB · interrupted
+                uploads resume from the last confirmed chunk
+              </p>
+            </form>
+          )}
+        </div>
       ) : null}
 
       {canManage && lecture.audio && lecture.status === 'draft' ? (

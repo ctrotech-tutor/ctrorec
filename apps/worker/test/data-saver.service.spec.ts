@@ -5,7 +5,10 @@ import type { AudioStorage } from '@ctrorec/media'
 import type { ConfigService } from '@nestjs/config'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QueueService } from '../src/queue/queue.service.js'
-import { DataSaverService } from '../src/media/data-saver.service.js'
+import {
+  DataSaverService,
+  dataSaverBitrate,
+} from '../src/media/data-saver.service.js'
 import type {
   ClaimedDataSaver,
   DataSaverRepository,
@@ -114,5 +117,28 @@ describe('data-saver retry boundaries', () => {
     // Only the pre-save replacement cleanup is allowed. A failed stale
     // transition must not issue the compensating delete for the current row.
     expect(storage.delete).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('data-saver bitrate selection', () => {
+  it('uses the capture duration to avoid a larger derivative for compressed audio', () => {
+    expect(
+      dataSaverBitrate({ mediaType: 'audio/mp4', byteSize: 24_000 }, 4_000),
+    ).toBe(32_000)
+    expect(
+      dataSaverBitrate({ mediaType: 'audio/mp4', byteSize: 100_000 }, 4_000),
+    ).toBe(48_000)
+  })
+
+  it('defaults compressed WebM/Ogg to 32 kbps and other originals to 48 kbps', () => {
+    expect(
+      dataSaverBitrate({ mediaType: 'audio/webm', byteSize: 24_000 }, null),
+    ).toBe(32_000)
+    expect(
+      dataSaverBitrate({ mediaType: 'audio/ogg', byteSize: 24_000 }, null),
+    ).toBe(32_000)
+    expect(
+      dataSaverBitrate({ mediaType: 'audio/wav', byteSize: 24_000 }, null),
+    ).toBe(48_000)
   })
 })

@@ -2,14 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { detectAudioMediaType, parseByteRange } from '../src/lectures/audio.js'
 
 describe('audio signatures', () => {
-  it('recognizes PCM WAV, M4A, and MP3 containers', () => {
+  it('recognizes supported audio container signatures', () => {
     const wav = Buffer.from('RIFF0000WAVE', 'ascii')
     const m4a = Buffer.from('0000ftypM4A ', 'ascii')
     const mp3 = Buffer.from('ID3\x04\x00\x00\x00\x00\x00\x00', 'binary')
+    const webm = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0])
+    const ogg = Buffer.from('OggS00000000', 'ascii')
 
     expect(detectAudioMediaType(wav)).toBe('audio/wav')
     expect(detectAudioMediaType(m4a)).toBe('audio/mp4')
     expect(detectAudioMediaType(mp3)).toBe('audio/mpeg')
+    expect(detectAudioMediaType(webm)).toBe('audio/webm')
+    expect(detectAudioMediaType(ogg)).toBe('audio/ogg')
   })
 
   it('rejects video and unknown signatures', () => {

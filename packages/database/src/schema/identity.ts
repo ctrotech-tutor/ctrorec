@@ -3,6 +3,7 @@ import {
   check,
   foreignKey,
   index,
+  integer,
   pgTable,
   primaryKey,
   text,
@@ -42,6 +43,7 @@ export const users = pgTable(
     email: text('email').notNull(),
     displayName: text('display_name').notNull(),
     passwordHash: text('password_hash'),
+    credentialsVersion: integer('credentials_version').notNull().default(0),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     status: text('status').notNull().default('active'),
     ...timestamps(),
@@ -51,6 +53,10 @@ export const users = pgTable(
     check(
       'users_email_normalized',
       sql`${table.email} = lower(btrim(${table.email})) AND position('@' IN ${table.email}) > 1`,
+    ),
+    check(
+      'users_credentials_version_valid',
+      sql`${table.credentialsVersion} >= 0`,
     ),
     check(
       'users_display_name_nonempty',

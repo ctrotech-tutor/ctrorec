@@ -45,8 +45,22 @@ export class UsersRepository {
       : null
   }
 
-  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
-    await this.db.update(users).set({ passwordHash }).where(eq(users.id, id))
+  async updatePasswordHash(
+    id: string,
+    passwordHash: string,
+    expectedCredentialsVersion: number,
+  ): Promise<boolean> {
+    const rows = await this.db
+      .update(users)
+      .set({ passwordHash })
+      .where(
+        and(
+          eq(users.id, id),
+          eq(users.credentialsVersion, expectedCredentialsVersion),
+        ),
+      )
+      .returning({ id: users.id })
+    return rows.length === 1
   }
 
   async listMemberships(userId: string): Promise<AuthMembership[]> {
@@ -104,6 +118,7 @@ function toAuthUser(row: UserRow): AuthUser {
     email: row.email,
     displayName: row.displayName,
     emailVerified: row.emailVerifiedAt !== null,
+    credentialsVersion: row.credentialsVersion,
     roles: [],
   }
 }

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type { Server } from 'node:http'
 import { dirname, join } from 'node:path'
 import { readFile, readdir, rm } from 'node:fs/promises'
@@ -16,6 +16,7 @@ import {
   enrollments,
   institutions,
   lectureAudio,
+  lectureAudioCaptures,
   lectureAudioDerivatives,
   lectures,
   memberships,
@@ -818,6 +819,130 @@ describe('lecture audio walking skeleton', () => {
     expect(Buffer.from(await playback.arrayBuffer()).equals(wav)).toBe(true)
   })
 
+  it('attaches browser-capture provenance atomically with a WebM original', async () => {
+    const cookie = cookieFrom(await signIn(lecturer))
+    const lecture = await seededLecture()
+    const webm = await readFile(
+      new URL(
+        '../../../packages/media/test/fixtures/capture.webm',
+        import.meta.url,
+      ),
+    )
+    const sha256 = createHash('sha256').update(webm).digest('hex')
+    const created = await api(`/api/lectures/${lecture.id}/audio/uploads`, {
+      method: 'POST',
+      cookie,
+      body: { fileName: 'hall-capture.webm', byteSize: webm.length, sha256 },
+    })
+    expect(created.status).toBe(201)
+    const upload = (await created.json()) as { id: string }
+    const appended = await api(
+      `/api/lectures/${lecture.id}/audio/uploads/${upload.id}`,
+      {
+        method: 'PATCH',
+        cookie,
+        body: webm,
+        headers: {
+          'Content-Type': 'application/offset+octet-stream',
+          'Upload-Offset': '0',
+        },
+      },
+    )
+    expect(appended.status).toBe(200)
+
+    const stoppedAt = new Date()
+    const startedAt = new Date(stoppedAt.getTime() - 5_000)
+    const consentAttestedAt = new Date(startedAt.getTime() - 1_000)
+    const clientCaptureId = randomUUID()
+    const completed = await api(
+      `/api/lectures/${lecture.id}/audio/uploads/${upload.id}/complete`,
+      {
+        method: 'POST',
+        cookie,
+        body: {
+          capture: {
+            clientCaptureId,
+            recorderMimeType: 'audio/webm;codecs=opus',
+            consentAttestedAt: consentAttestedAt.toISOString(),
+            startedAt: startedAt.toISOString(),
+            stoppedAt: stoppedAt.toISOString(),
+            durationMs: 5_000,
+            chunkCount: 2,
+            persistentStorageGranted: true,
+            stopReason: 'stopped',
+            hashingDurationMs: 125,
+            uploadDurationMs: 2_500,
+            uploadRetryCount: 3,
+          },
+        },
+      },
+    )
+    expect(completed.status).toBe(200)
+    expect(await completed.json()).toMatchObject({
+      audio: { mediaType: 'audio/webm', byteSize: webm.length, sha256 },
+    })
+    const provenance = required(
+      (
+        await db
+          .select()
+          .from(lectureAudioCaptures)
+          .where(eq(lectureAudioCaptures.lectureId, lecture.id))
+      )[0],
+    )
+    expect(provenance).toMatchObject({
+      institutionId: lecture.institutionId,
+      clientCaptureId,
+      recorderMimeType: 'audio/webm;codecs=opus',
+      startedAt,
+      stoppedAt,
+      consentAttestedAt,
+      durationMs: 5_000,
+      chunkCount: 2,
+      persistentStorageGranted: true,
+      stopReason: 'stopped',
+      hashingDurationMs: 125,
+      uploadDurationMs: 2_500,
+      uploadRetryCount: 3,
+    })
+    const original = await api(`/api/lectures/${lecture.id}/audio`, { cookie })
+    expect(original.status).toBe(200)
+    expect(original.headers.get('content-type')).toBe('audio/webm')
+    expect(Buffer.from(await original.arrayBuffer())).toEqual(webm)
+
+    const evidence = await api(
+      `/api/institutions/${lecture.institutionId}/admin/capture-evidence.csv?from=2020-01-01&to=2030-01-01`,
+      { cookie },
+    )
+    expect(evidence.status).toBe(200)
+    expect(evidence.headers.get('content-type')).toBe('text/csv; charset=utf-8')
+    expect(evidence.headers.get('cache-control')).toBe('private, no-store')
+    const records = (await evidence.text()).trimEnd().split('\r\n')
+    const header = parseCsvRecord(required(records[0]))
+    const evidenceRow = parseCsvRecord(
+      required(records.find((record) => record.includes(clientCaptureId))),
+    )
+    expect(
+      Object.fromEntries(
+        header.map((name, index) => [name, evidenceRow[index]]),
+      ),
+    ).toMatchObject({
+      capture_reference: clientCaptureId,
+      lecture_id: lecture.id,
+      original_media_type: 'audio/webm',
+      original_byte_size: String(webm.length),
+      hashing_duration_ms: '125',
+      upload_duration_ms: '2500',
+      upload_retry_count: '3',
+      derivative_status: 'pending',
+    })
+    const studentCookie = cookieFrom(await signIn(student))
+    const denied = await api(
+      `/api/institutions/${lecture.institutionId}/admin/capture-evidence.csv`,
+      { cookie: studentCookie },
+    )
+    expect(denied.status).toBe(404)
+  })
+
   it('cleans failed or cancelled resumable sessions without attaching audio', async () => {
     const lecturerCookie = cookieFrom(await signIn(lecturer))
     const lecture = await seededLecture()
@@ -1115,6 +1240,30 @@ function cookieFrom(response: Response): string {
     throw new Error('Expected a non-empty session cookie.')
   }
   return cookie
+}
+
+function parseCsvRecord(record: string): string[] {
+  const cells: string[] = []
+  let cell = ''
+  let quoted = false
+  for (let index = 0; index < record.length; index += 1) {
+    const character = record[index]
+    if (character === '"') {
+      if (quoted && record[index + 1] === '"') {
+        cell += '"'
+        index += 1
+      } else {
+        quoted = !quoted
+      }
+    } else if (character === ',' && !quoted) {
+      cells.push(cell)
+      cell = ''
+    } else {
+      cell += character
+    }
+  }
+  cells.push(cell)
+  return cells
 }
 
 function required<T>(value: T | undefined): T {

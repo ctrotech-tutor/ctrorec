@@ -57,7 +57,7 @@ export class DataSaverService implements OnModuleInit {
       return
     }
 
-    const { audio, derivative } = claimed
+    const { audio, derivative, captureDurationMs } = claimed
     const key = `${audio.institutionId}/${audio.lectureId}/${derivative.id}.m4a`
     const signal = AbortSignal.any([
       jobSignal,
@@ -89,6 +89,7 @@ export class DataSaverService implements OnModuleInit {
         ffmpegPath: this.ffmpegPath,
         sourcePath,
         destinationPath,
+        audioBitrate: dataSaverBitrate(audio, captureDurationMs),
         signal,
       })
       const inspected = await inspectAudio(destinationPath)
@@ -149,4 +150,15 @@ export class DataSaverService implements OnModuleInit {
       await rm(temporaryDirectory, { recursive: true, force: true })
     }
   }
+}
+
+export function dataSaverBitrate(
+  audio: { mediaType: string; byteSize: number },
+  captureDurationMs: number | null,
+): 32000 | 48000 {
+  if (captureDurationMs !== null && captureDurationMs > 0) {
+    const originalBitrate = (audio.byteSize * 8) / (captureDurationMs / 1_000)
+    return originalBitrate <= 64_000 ? 32_000 : 48_000
+  }
+  return ['audio/webm', 'audio/ogg'].includes(audio.mediaType) ? 32_000 : 48_000
 }

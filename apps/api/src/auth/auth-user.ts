@@ -3,6 +3,8 @@ export interface AuthUser {
   email: string
   displayName: string
   emailVerified: boolean
+  /** Internal session snapshot; never serialize this in account responses. */
+  credentialsVersion: number
   /** Global roles are deliberately empty; roles belong to memberships. */
   roles: string[]
 }

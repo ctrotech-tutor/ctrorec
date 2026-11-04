@@ -16,9 +16,9 @@ The core contracts have no Nest, React, database, or AI dependency. Cloudinary i
 
 ## Data-saver profile
 
-The current candidate profile is mono AAC at 48 kbit/s in an explicitly branded M4A container. Processing removes metadata, chapters, video, subtitles, and data streams and enables MP4 `faststart`. This is an engineering candidate, not a real-hall quality certification. Follow `docs/media-evidence.md` before changing or approving the profile.
+The candidate profile is mono AAC in an explicitly branded M4A container. It uses 48 kbit/s for ordinary originals and 32 kbit/s for compressed WebM/Ogg or captures whose measured original bitrate is at most 64 kbit/s. Processing removes metadata, chapters, video, subtitles, and data streams and enables MP4 `faststart`. These are engineering candidates, not real-hall quality certifications. Follow `docs/media-evidence.md` before changing or approving a profile.
 
-The API accepts only WAV, M4A, and MP3 signatures. Generic MP4 `isom` files are not accepted as M4A uploads. Signature inspection is not transcoding, malware scanning, duration analysis, or proof that a container has valid audio.
+The API accepts WAV, M4A, MP3, WebM, Ogg, and audio-only MP4-family input. The API supplies FFprobe for containers that can hold video; worker-side hashing alone does not perform that request-validation probe. Signature/container inspection is not malware scanning, full decode validation, or proof of useful lecture audio.
 
 ## Cloudinary evidence
 
@@ -37,6 +37,7 @@ This can incur provider usage charges and deletes the synthetic objects it creat
 
 - Node 26.13+
 - FFmpeg available as `ffmpeg`, or set `FFMPEG_BIN` for the worker
+- FFprobe available as `ffprobe`, or set `FFPROBE_BIN` for the API
 
 ```sh
 pnpm --filter @ctrorec/media typecheck

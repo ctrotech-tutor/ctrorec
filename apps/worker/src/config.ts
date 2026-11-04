@@ -25,6 +25,51 @@ const environmentSchema = z
       .string()
       .regex(/^[a-z_][a-z0-9_]*$/)
       .default('pgboss'),
+    RECOVERY_EMAIL_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+    RECOVERY_SMTP_URL: z
+      .url()
+      .refine(
+        (value) => ['smtp:', 'smtps:'].includes(new URL(value).protocol),
+        {
+          message: 'Use an smtp:// or smtps:// connection URL.',
+        },
+      )
+      .optional(),
+    RECOVERY_EMAIL_FROM: z
+      .string()
+      .min(3)
+      .max(254)
+      .regex(/^[^\r\n]+$/)
+      .default('no-reply@localhost'),
+    RECOVERY_WEB_ORIGIN: z
+      .url()
+      .default('http://localhost:3000')
+      .transform((value) => new URL(value).origin),
+    RECOVERY_SMTP_CONNECTION_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(120_000)
+      .default(10_000),
+    RECOVERY_SMTP_GREETING_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(120_000)
+      .default(10_000),
+    RECOVERY_SMTP_SOCKET_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(120_000)
+      .default(30_000),
+    RECOVERY_SMTP_IGNORE_TLS: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
   })
   .superRefine((environment, context) => {
     if (
@@ -35,6 +80,14 @@ const environmentSchema = z
         code: 'custom',
         message: 'CLOUDINARY_URL is required for Cloudinary audio storage.',
         path: ['CLOUDINARY_URL'],
+      })
+    }
+    if (environment.RECOVERY_EMAIL_ENABLED && !environment.RECOVERY_SMTP_URL) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'RECOVERY_SMTP_URL is required when recovery email is enabled.',
+        path: ['RECOVERY_SMTP_URL'],
       })
     }
   })

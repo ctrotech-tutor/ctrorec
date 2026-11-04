@@ -34,6 +34,23 @@ describe('data-saver transcoding', () => {
     expect(inspected.sha256).toMatch(/^[0-9a-f]{64}$/)
   })
 
+  it.each(['capture.webm', 'capture.ogg', 'capture-isom.m4a'])(
+    'transcodes browser-captured %s to M4A',
+    async (name) => {
+      temporaryDirectory = await mkdtemp(join(tmpdir(), 'ctrorec-media-'))
+      const destinationPath = join(temporaryDirectory, 'data-saver.m4a')
+      await transcodeDataSaver({
+        ffmpegPath: 'ffmpeg',
+        sourcePath: fileURLToPath(
+          new URL(`./fixtures/${name}`, import.meta.url),
+        ),
+        destinationPath,
+        audioBitrate: name === 'capture-isom.m4a' ? 48_000 : 32_000,
+      })
+      expect((await inspectAudio(destinationPath)).mediaType).toBe('audio/mp4')
+    },
+  )
+
   it('honors cancellation without creating an output', async () => {
     temporaryDirectory = await mkdtemp(join(tmpdir(), 'ctrorec-media-'))
     const destinationPath = join(temporaryDirectory, 'cancelled.m4a')

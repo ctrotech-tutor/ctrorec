@@ -30,7 +30,11 @@ async function main(): Promise<void> {
     await db.execute(sql`
       TRUNCATE TABLE
         auth_sessions,
+        account_recovery_requests,
+        institution_invitation_roles,
+        institution_invitations,
         lecture_audio_derivatives,
+        lecture_audio_captures,
         lecture_audio_uploads,
         lecture_audio,
         lectures,

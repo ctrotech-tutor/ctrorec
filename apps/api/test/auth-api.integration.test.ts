@@ -103,7 +103,7 @@ describe('authentication HTTP API', () => {
     expect(body.memberships).toHaveLength(1)
     expect(body.memberships[0]).toMatchObject({
       institution: { slug: 'asteria-university' },
-      roles: ['academic_staff'],
+      roles: ['academic_staff', 'institution_admin'],
     })
     expect(JSON.stringify(body)).not.toContain('passwordHash')
   })

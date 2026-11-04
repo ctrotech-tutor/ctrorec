@@ -23,10 +23,14 @@ export class CredentialsService {
     }
 
     if (this.passwordHasher.needsRehash(found.passwordHash)) {
-      await this.usersRepository.updatePasswordHash(
+      const updated = await this.usersRepository.updatePasswordHash(
         found.user.id,
         await this.passwordHasher.hash(password),
+        found.user.credentialsVersion,
       )
+      if (!updated) {
+        return null
+      }
     }
 
     return found.user

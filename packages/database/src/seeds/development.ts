@@ -62,6 +62,14 @@ export async function seedDevelopment(db: Database) {
         .update(users)
         .set({ passwordHash: DEVELOPMENT_PASSWORD_HASHES.student })
         .where(and(eq(users.id, IDS.studentUser), isNull(users.passwordHash)))
+      await tx
+        .insert(membershipRoles)
+        .values({
+          institutionId: IDS.institution,
+          membershipId: IDS.lecturerMembership,
+          role: 'institution_admin',
+        })
+        .onConflictDoNothing()
       return { institutionId: existing.id, seeded: false as const }
     }
 
@@ -101,6 +109,11 @@ export async function seedDevelopment(db: Database) {
         institutionId: IDS.institution,
         membershipId: IDS.lecturerMembership,
         role: 'academic_staff',
+      },
+      {
+        institutionId: IDS.institution,
+        membershipId: IDS.lecturerMembership,
+        role: 'institution_admin',
       },
       {
         institutionId: IDS.institution,

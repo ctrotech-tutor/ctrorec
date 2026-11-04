@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
-import type { FormEvent } from 'react'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { useState, type FormEvent } from 'react'
+import { AdminWorkspace } from '../components/admin-workspace'
 import { CourseWorkspace } from '../components/course-workspace'
+import { adminKeys } from '../lib/admin'
 import { apiHealthOptions } from '../lib/api'
 import {
   authKeys,
@@ -17,12 +19,14 @@ export const Route = createFileRoute('/')({ component: HomePage })
 
 function HomePage() {
   const queryClient = useQueryClient()
+  const [workspace, setWorkspace] = useState<'lectures' | 'admin'>('lectures')
   const health = useQuery(apiHealthOptions)
   const auth = useQuery(authMeOptions)
   const signInMutation = useMutation({
     mutationFn: signIn,
     onSuccess: async () => {
       queryClient.removeQueries({ queryKey: courseKeys.all })
+      queryClient.removeQueries({ queryKey: adminKeys.all })
       await queryClient.invalidateQueries({ queryKey: authKeys.me })
     },
   })
@@ -30,6 +34,7 @@ function HomePage() {
     mutationFn: signOut,
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: courseKeys.all })
+      queryClient.removeQueries({ queryKey: adminKeys.all })
       queryClient.setQueryData(authKeys.me, null)
     },
   })
@@ -38,6 +43,13 @@ function HomePage() {
     : health.isError
       ? 'API unavailable'
       : 'API connected'
+  const canAdmin =
+    auth.data?.memberships.some(
+      (membership) =>
+        membership.status === 'active' &&
+        membership.institution.status === 'active' &&
+        membership.roles.includes('institution_admin'),
+    ) ?? false
 
   function submitSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -83,7 +95,29 @@ function HomePage() {
               pending={signOutMutation.isPending}
               onSignOut={() => signOutMutation.mutate()}
             />
-            <CourseWorkspace />
+            {canAdmin ? (
+              <nav className="workspace-tabs" aria-label="Workspace views">
+                <button
+                  aria-pressed={workspace === 'lectures'}
+                  onClick={() => setWorkspace('lectures')}
+                  type="button"
+                >
+                  Course lectures
+                </button>
+                <button
+                  aria-pressed={workspace === 'admin'}
+                  onClick={() => setWorkspace('admin')}
+                  type="button"
+                >
+                  Administration
+                </button>
+              </nav>
+            ) : null}
+            {canAdmin && workspace === 'admin' ? (
+              <AdminWorkspace memberships={auth.data.memberships} />
+            ) : (
+              <CourseWorkspace ownerId={auth.data.user.id} />
+            )}
           </>
         ) : (
           <section className="auth-panel" aria-labelledby="sign-in-title">
@@ -129,6 +163,9 @@ function HomePage() {
                 {signInMutation.isPending ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
+            <Link className="text-link recovery-link" to="/recover">
+              Forgot your password?
+            </Link>
             <p className="auth-note">
               No public registration. Your institution controls membership and
               course access.

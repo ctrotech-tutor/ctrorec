@@ -16,7 +16,9 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "tests/**/*.ts",
+    "unit/**/*.ts",
     "vite.config.ts",
+    "vitest.config.ts",
     "playwright.config.ts"
   ]
 }

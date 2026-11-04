@@ -11,6 +11,7 @@ import {
   ServiceUnavailableException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { AUDIO_STORAGE, type AudioStorage } from './audio-storage.js'
 import { inspectAudio, parseByteRange, type ByteRange } from './audio.js'
 import {
@@ -55,6 +56,22 @@ interface AudioView {
   dataSaver: DataSaverView | null
 }
 
+export interface CaptureProvenanceInput {
+  clientCaptureId: string
+  recorderMimeType: string
+  consentAttestedAt: string
+  startedAt: string
+  stoppedAt: string
+  durationMs: number
+  chunkCount: number
+  persistentStorageGranted: boolean
+  stopReason:
+    'stopped' | 'interrupted' | 'track-ended' | 'recorder-error' | 'size-limit'
+  hashingDurationMs: number
+  uploadDurationMs: number
+  uploadRetryCount: number
+}
+
 export interface LectureView {
   id: string
   title: string
@@ -88,13 +105,17 @@ export interface OpenAudioOptions {
 @Injectable()
 export class LecturesService {
   private readonly logger = new Logger(LecturesService.name)
+  private readonly ffprobePath: string
 
   constructor(
     @Inject(LecturesRepository)
     private readonly repository: LecturesRepository,
     @Inject(AUDIO_STORAGE) private readonly storage: AudioStorage,
     @Inject(MediaJobsService) private readonly mediaJobs: MediaJobsService,
-  ) {}
+    @Inject(ConfigService) config: ConfigService,
+  ) {
+    this.ffprobePath = config.getOrThrow<string>('FFPROBE_BIN')
+  }
 
   async listOfferings(userId: string): Promise<OfferingView[]> {
     const now = new Date()
@@ -283,6 +304,7 @@ export class LecturesService {
     lectureId: string,
     file: { path: string; originalname: string; expectedSha256?: string },
     completedUploadId?: string,
+    captureInput?: CaptureProvenanceInput,
   ): Promise<LectureView> {
     const { lecture, access } = await this.assertCanManageLecture(
       userId,
@@ -299,14 +321,18 @@ export class LecturesService {
     try {
       let inspected
       try {
-        inspected = await inspectAudio(file.path)
+        inspected = await inspectAudio(file.path, {
+          ffprobePath: this.ffprobePath,
+        })
       } catch (error) {
         if (
           error instanceof Error &&
-          error.message === 'Unsupported audio signature.'
+          (error.message === 'Unsupported audio signature.' ||
+            error.message ===
+              'The uploaded file is not an audio-only recording.')
         ) {
           throw new UnsupportedMediaTypeException(
-            'Upload an MP3, WAV, or M4A audio file.',
+            'Upload an audio-only MP3, WAV, M4A, WebM, or Ogg file.',
           )
         }
         throw new BadRequestException('The uploaded audio file is invalid.')
@@ -317,6 +343,9 @@ export class LecturesService {
           'The assembled upload does not match its expected checksum. Start the upload again.',
         )
       }
+      const capture = captureInput
+        ? cleanCaptureProvenance(captureInput, inspected.mediaType)
+        : undefined
       key = `${lecture.lecture.institutionId}/${lectureId}/${randomUUID()}.${audioFileExtension(inspected.mediaType)}`
       await this.mediaJobs.ready()
       await this.storage.save(key, file.path)
@@ -337,6 +366,7 @@ export class LecturesService {
           (transaction, derivative) =>
             this.mediaJobs.publishDataSaver(derivative, transaction),
           completedUploadId,
+          capture,
         )
         return toLectureView({ ...lecture, audio, dataSaver })
       } catch (error) {
@@ -628,6 +658,52 @@ function parseLectureDate(input: string): Date {
   return date
 }
 
+function cleanCaptureProvenance(
+  input: CaptureProvenanceInput,
+  mediaType: string,
+): Omit<
+  CaptureProvenanceInput,
+  'consentAttestedAt' | 'startedAt' | 'stoppedAt'
+> & {
+  consentAttestedAt: Date
+  startedAt: Date
+  stoppedAt: Date
+} {
+  const recorderMimeType = input.recorderMimeType.trim()
+  const recorderMediaType = recorderMimeType.split(';', 1)[0]?.toLowerCase()
+  if (
+    recorderMediaType !== mediaType ||
+    !['audio/webm', 'audio/ogg', 'audio/mp4'].includes(mediaType) ||
+    !isUuid(input.clientCaptureId)
+  ) {
+    throw new BadRequestException(
+      'The capture details do not match the uploaded recording.',
+    )
+  }
+  const consentAttestedAt = new Date(input.consentAttestedAt)
+  const startedAt = new Date(input.startedAt)
+  const stoppedAt = new Date(input.stoppedAt)
+  const latestAllowed = Date.now() + 5 * 60_000
+  if (
+    [consentAttestedAt, startedAt, stoppedAt].some((date) =>
+      Number.isNaN(date.getTime()),
+    ) ||
+    consentAttestedAt.getTime() > startedAt.getTime() ||
+    startedAt.getTime() > stoppedAt.getTime() ||
+    stoppedAt.getTime() > latestAllowed ||
+    input.durationMs > stoppedAt.getTime() - startedAt.getTime() + 60_000
+  ) {
+    throw new BadRequestException('The capture timeline is invalid.')
+  }
+  return {
+    ...input,
+    recorderMimeType,
+    consentAttestedAt,
+    startedAt,
+    stoppedAt,
+  }
+}
+
 function audioFileExtension(mediaType: string): string {
   switch (mediaType) {
     case 'audio/mpeg':
@@ -636,6 +712,10 @@ function audioFileExtension(mediaType: string): string {
       return 'wav'
     case 'audio/mp4':
       return 'm4a'
+    case 'audio/webm':
+      return 'webm'
+    case 'audio/ogg':
+      return 'ogg'
     default:
       throw new Error('Unsupported inspected audio media type.')
   }

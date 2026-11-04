@@ -4,6 +4,7 @@ export interface DataSaverTranscodeOptions {
   ffmpegPath: string
   sourcePath: string
   destinationPath: string
+  audioBitrate?: 32000 | 48000
   signal?: AbortSignal
 }
 
@@ -30,7 +31,7 @@ export async function transcodeDataSaver(
     '-c:a',
     'aac',
     '-b:a',
-    '48000',
+    String(options.audioBitrate ?? 48_000),
     '-ac',
     '1',
     '-ar',

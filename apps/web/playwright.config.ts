@@ -32,6 +32,13 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:3000',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+    launchOptions: {
+      args: [
+        '--use-fake-device-for-media-stream',
+        '--use-fake-ui-for-media-stream',
+        `--use-file-for-fake-audio-capture=${fileURLToPath(new URL('../api/test/fixtures/lecture.wav', import.meta.url))}`,
+      ],
+    },
   },
   webServer: [
     {
@@ -47,6 +54,11 @@ export default defineConfig({
         DATABASE_URL: testDatabaseUrl,
         TEST_DATABASE_URL: testDatabaseUrl,
         WEB_ORIGIN: 'http://127.0.0.1:3000',
+        RECOVERY_EMAIL_ENABLED: 'true',
+        RECOVERY_SMTP_URL: 'smtp://127.0.0.1:2525',
+        RECOVERY_EMAIL_FROM: 'no-reply@ctrorec.test',
+        RECOVERY_WEB_ORIGIN: 'http://127.0.0.1:3000',
+        RECOVERY_SMTP_IGNORE_TLS: 'true',
       },
       reuseExistingServer: false,
       timeout: 120_000,
@@ -57,6 +69,12 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       url: 'http://127.0.0.1:3000',
+    },
+    {
+      command: 'node tests/smtp-catcher.mjs',
+      reuseExistingServer: false,
+      timeout: 30_000,
+      url: 'http://127.0.0.1:2526/health',
     },
   ],
   workers: 1,

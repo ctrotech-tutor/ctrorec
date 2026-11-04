@@ -17,6 +17,7 @@ import type { Request } from 'express'
 import {
   LecturesService,
   cleanAudioFileName,
+  type CaptureProvenanceInput,
   type LectureView,
 } from './lectures.service.js'
 import {
@@ -249,6 +250,7 @@ export class ResumableAudioService {
     userId: string,
     lectureId: string,
     uploadId: string,
+    capture?: CaptureProvenanceInput,
   ): Promise<LectureView> {
     const upload = await this.requireUpload(userId, lectureId, uploadId)
     if (upload.status === 'completed') {
@@ -290,6 +292,7 @@ export class ResumableAudioService {
           expectedSha256: upload.sha256,
         },
         upload.id,
+        capture,
       )
       await this.removeDirectory(directory)
       return lecture

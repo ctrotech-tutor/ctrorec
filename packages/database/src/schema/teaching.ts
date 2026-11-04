@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
   bigint,
+  boolean,
   check,
   foreignKey,
   index,
@@ -277,12 +278,74 @@ export const lectureAudio = pgTable(
     ),
     check(
       'lecture_audio_media_type_valid',
-      sql`${table.mediaType} IN ('audio/mpeg', 'audio/wav', 'audio/mp4')`,
+      sql`${table.mediaType} IN ('audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/webm', 'audio/ogg')`,
     ),
     check('lecture_audio_byte_size_positive', sql`${table.byteSize} > 0`),
     check(
       'lecture_audio_sha256_valid',
       sql`${table.sha256} ~ '^[0-9a-f]{64}$'`,
+    ),
+  ],
+)
+
+export const lectureAudioCaptures = pgTable(
+  'lecture_audio_captures',
+  {
+    lectureId: uuid('lecture_id').primaryKey(),
+    institutionId: uuid('institution_id').notNull(),
+    clientCaptureId: uuid('client_capture_id').notNull(),
+    recorderMimeType: text('recorder_mime_type').notNull(),
+    consentAttestedAt: timestamp('consent_attested_at', {
+      withTimezone: true,
+    }).notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    stoppedAt: timestamp('stopped_at', { withTimezone: true }).notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    chunkCount: integer('chunk_count').notNull(),
+    persistentStorageGranted: boolean('persistent_storage_granted').notNull(),
+    stopReason: text('stop_reason').notNull(),
+    hashingDurationMs: integer('hashing_duration_ms'),
+    uploadDurationMs: integer('upload_duration_ms'),
+    uploadRetryCount: integer('upload_retry_count'),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('lecture_audio_captures_client_unique').on(table.clientCaptureId),
+    foreignKey({
+      columns: [table.lectureId, table.institutionId],
+      foreignColumns: [lectureAudio.lectureId, lectureAudio.institutionId],
+      name: 'lecture_audio_captures_original_fk',
+    }).onDelete('restrict'),
+    check(
+      'lecture_audio_captures_mime_valid',
+      sql`btrim(${table.recorderMimeType}) = ${table.recorderMimeType} AND char_length(${table.recorderMimeType}) BETWEEN 1 AND 120`,
+    ),
+    check(
+      'lecture_audio_captures_times_valid',
+      sql`${table.consentAttestedAt} <= ${table.startedAt} AND ${table.startedAt} <= ${table.stoppedAt}`,
+    ),
+    check(
+      'lecture_audio_captures_measurements_valid',
+      sql`${table.durationMs} >= 0 AND ${table.chunkCount} > 0`,
+    ),
+    check(
+      'lecture_audio_captures_stop_reason_valid',
+      sql`${table.stopReason} IN ('stopped', 'interrupted', 'track-ended', 'recorder-error', 'size-limit')`,
+    ),
+    check(
+      'lecture_audio_captures_handoff_measurements_valid',
+      sql`(
+        ${table.hashingDurationMs} IS NULL
+        AND ${table.uploadDurationMs} IS NULL
+        AND ${table.uploadRetryCount} IS NULL
+      ) OR (
+        ${table.hashingDurationMs} IS NOT NULL
+        AND ${table.uploadDurationMs} IS NOT NULL
+        AND ${table.uploadRetryCount} IS NOT NULL
+        AND ${table.hashingDurationMs} >= 0
+        AND ${table.uploadDurationMs} >= 0
+        AND ${table.uploadRetryCount} >= 0
+      )`,
     ),
   ],
 )

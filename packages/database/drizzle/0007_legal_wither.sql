@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN "credentials_version" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD CONSTRAINT "users_credentials_version_valid" CHECK ("users"."credentials_version" >= 0);

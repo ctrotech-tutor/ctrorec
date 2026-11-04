@@ -41,6 +41,7 @@ export class AuthController {
 
     const { session } = await this.signInService.signIn(user.id, {
       method: 'password',
+      metadata: { credentialsVersion: user.credentialsVersion },
     })
     return { mfaRequired: session.mfa === 'pending' }
   }

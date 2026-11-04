@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { queryOptions } from '@tanstack/react-query'
+import { ApiError, requestJson } from './http'
 
 export interface CourseOffering {
   id: string
@@ -53,6 +54,19 @@ export interface AudioUploadSession {
   sha256: string
   status: string
   expiresAt: string
+}
+
+export interface CaptureProvenance {
+  clientCaptureId: string
+  recorderMimeType: string
+  consentAttestedAt: string
+  startedAt: string
+  stoppedAt: string
+  durationMs: number
+  chunkCount: number
+  persistentStorageGranted: boolean
+  stopReason:
+    'stopped' | 'interrupted' | 'track-ended' | 'recorder-error' | 'size-limit'
 }
 
 export interface AudioUploadProgress {
@@ -162,6 +176,7 @@ export async function cancelActiveAudioUpload(
 export async function uploadLectureAudio(input: {
   lectureId: string
   file: File
+  capture?: CaptureProvenance
   onProgress?: (progress: AudioUploadProgress) => void
 }): Promise<Lecture> {
   const { file, lectureId } = input
@@ -174,9 +189,13 @@ export async function uploadLectureAudio(input: {
   ) => {
     input.onProgress?.({ phase, receivedBytes, totalBytes: file.size })
   }
+  const hashingStartedAt = performance.now()
   const checksum = await hashFile(file, (receivedBytes) => {
     report('hashing', receivedBytes)
   })
+  const hashingDurationMs = Math.round(performance.now() - hashingStartedAt)
+  const uploadStartedAt = performance.now()
+  let uploadRetryCount = 0
 
   const active = await getActiveAudioUpload(lectureId)
   if (active && (active.byteSize !== file.size || active.sha256 !== checksum)) {
@@ -214,6 +233,7 @@ export async function uploadLectureAudio(input: {
         report('uploading', session.receivedBytes)
         recovered = true
       } catch (error) {
+        uploadRetryCount += 1
         const current = await getAudioUpload(lectureId, session.id).catch(
           () => null,
         )
@@ -237,12 +257,28 @@ export async function uploadLectureAudio(input: {
     }
   }
 
+  const capture = input.capture
+    ? {
+        ...input.capture,
+        hashingDurationMs,
+        uploadDurationMs: Math.round(performance.now() - uploadStartedAt),
+        uploadRetryCount,
+      }
+    : undefined
   report('completing', file.size)
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const value = await requestJson(
         `/api/lectures/${encodeURIComponent(lectureId)}/audio/uploads/${encodeURIComponent(session.id)}/complete`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+          ...(capture
+            ? {
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ capture }),
+              }
+            : {}),
+        },
       )
       return requireLecture(
         value,
@@ -371,65 +407,6 @@ export async function publishLecture(lectureId: string): Promise<Lecture> {
     throw new Error('The publish response did not match the expected contract.')
   }
   return value
-}
-
-async function requestJson(
-  path: string,
-  init: {
-    method?: string
-    body?: BodyInit
-    headers?: Record<string, string>
-    signal?: AbortSignal
-    allowNotFound?: boolean
-  } = {},
-): Promise<unknown> {
-  const response = await fetch(path, {
-    method: init.method ?? 'GET',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json', ...init.headers },
-    ...(init.body ? { body: init.body } : {}),
-    ...(init.signal ? { signal: init.signal } : {}),
-  })
-  if (init.allowNotFound && response.status === 404) {
-    return null
-  }
-  if (!response.ok) {
-    throw await responseError(response)
-  }
-  return response.status === 204 ? null : response.json()
-}
-
-class ApiError extends Error {
-  readonly status: number
-
-  constructor(message: string, status: number) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-  }
-}
-
-async function responseError(response: Response): Promise<ApiError> {
-  const fallback =
-    response.status === 401
-      ? 'Your session has expired. Sign in again.'
-      : response.status === 404
-        ? 'This course or lecture is not available to your account.'
-        : response.status === 429
-          ? 'Too many requests. Wait before trying again.'
-          : 'The request could not be completed. Try again.'
-  try {
-    const body: unknown = await response.json()
-    if (isRecord(body) && typeof body.message === 'string') {
-      return new ApiError(
-        response.status === 404 ? fallback : body.message,
-        response.status,
-      )
-    }
-  } catch {
-    // Use the actionable fallback when the response is not JSON.
-  }
-  return new ApiError(fallback, response.status)
 }
 
 function isCourseOffering(value: unknown): value is CourseOffering {

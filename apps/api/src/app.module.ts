@@ -8,12 +8,15 @@ import {
   minutes,
   normalizeIp,
 } from '@nestjs/throttler'
+import { AdminModule } from './admin/admin.module.js'
 import { AuthModule } from './auth/auth.module.js'
 import { accountEmail } from './auth/email.js'
 import { validateApiEnvironment } from './config.js'
 import { DatabaseModule } from './database/database.module.js'
 import { HealthModule } from './health/health.module.js'
+import { InvitationsModule } from './invitations/invitations.module.js'
 import { LecturesModule } from './lectures/lectures.module.js'
+import { RecoveryModule } from './recovery/recovery.module.js'
 
 @Module({
   imports: [
@@ -51,9 +54,12 @@ import { LecturesModule } from './lectures/lectures.module.js'
       }),
     }),
     DatabaseModule,
+    AdminModule,
     AuthModule,
     HealthModule,
+    InvitationsModule,
     LecturesModule,
+    RecoveryModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

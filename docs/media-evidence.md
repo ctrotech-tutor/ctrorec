@@ -6,16 +6,18 @@ Assessment date: 2026-11-01. This document separates executable engineering chec
 
 - An uploaded original, its pending data-saver row, and its pg-boss job commit in one PostgreSQL transaction. The job ID is the derivative's UUIDv7.
 - The worker, not an HTTP request, downloads and re-hashes the original before processing it.
-- FFmpeg produces a mono 48 kbit/s AAC/M4A derivative, removes metadata and non-audio streams, and moves the MP4 index to the beginning for progressive playback.
+- FFmpeg produces a mono AAC/M4A derivative, removes metadata and non-audio streams, and moves the MP4 index to the beginning for progressive playback. Ordinary originals use 48 kbit/s; compressed WebM/Ogg and captures at or below 64 kbit/s use 32 kbit/s to avoid a routine larger-than-original result.
 - A derivative is exposed only after its staged object is stored and verified. If it is not smaller than the original, it is marked failed rather than presented as a saving.
 - Retry claims carry a processing-attempt token. A late attempt cannot mark a newer attempt ready/failed or issue its compensating object delete; an already completed job is not reprocessed.
 - Pending, processing, or failed processing does not prevent original publication or playback.
 - Original and ready derivative delivery use fresh Nest authorization, single byte ranges, strong SHA-256 entity tags, and `If-Range` handling. A mismatched validator returns the complete current representation instead of splicing two objects.
-- Production Chromium tests create/edit a lecture, abort a later upload chunk, recover the session, publish, wait for the real worker, and decode/seek/play both copies.
+- Production Chromium tests create/edit a lecture, abort a later upload chunk, recover the session, publish, wait for the real worker, and decode/seek/play both copies. They also use real `MediaRecorder` with deterministic fake audio, pause/resume, IndexedDB-backed local review, reload recovery, and resumable original WebM handoff.
 
-These tests use a short synthetic PCM fixture. They do **not** establish lecture-hall intelligibility, long-file reliability, iOS Safari compatibility, low-end Android performance, Nigerian network behavior, durable storage, or production unit economics.
+These tests use short synthetic PCM input and a browser fake-audio device. They do **not** establish physical-microphone or lecture-hall intelligibility, long-file reliability, iOS Safari compatibility, low-end Android performance, Nigerian network behavior, durable storage, background capture, browser/OS termination recovery, or production unit economics.
 
 ## Field pilot questions
+
+Phase 7B provides the visible capture reference, client handoff metrics, tenant-admin CSV export, blank field sheet, and step-by-step runbook in `docs/field-pilot.md`. Use that correlation process rather than matching sessions by approximate time or title.
 
 1. Can a lecturer capture understandable speech from normal teaching positions without changing how they teach?
 2. Can an enrolled student understand the original and data-saver copy on the phone and listening environment they actually use?
@@ -40,7 +42,7 @@ Record the same consented script before comparing files. Include a full-length s
 
 For every file, record a session ID, device/model, OS/browser or recorder version, microphone, position, hall condition, duration, capture app, and observed interruptions. Do not put student names or private lecture content in the measurement sheet.
 
-Browser `MediaRecorder` is not implemented in ctrorec. Device capture testing must not be reported as product recording support.
+Browser `MediaRecorder` is implemented for an active foreground tab with explicit permission/consent and recoverable local drafts. Physical-device capture testing must still distinguish actual product behavior from synthetic Chromium evidence. Do not infer background recording, offline upload, or guaranteed recovery after browser/OS termination. See `docs/lecture-capture.md`.
 
 ## Technical inspection
 
@@ -79,15 +81,15 @@ The pilot owner must set acceptance thresholds before seeing preference results.
 
 Use real carriers and devices where possible. Browser throttling is useful for reproducibility but is not evidence of radio conditions.
 
-| Scenario                             | Measurement                                                    |
-| ------------------------------------ | -------------------------------------------------------------- |
-| Slow, stable connection              | Time to first audio, startup data, rebuffer count, total bytes |
-| Latency and jitter                   | Seek delay, playback stalls, failed requests                   |
-| Brief disconnection during playback  | Recovery behavior and repeated bytes                           |
-| Disconnection during download        | Resume status, validator behavior, final SHA-256               |
-| Disconnection during lecturer upload | Error state, temporary-file cleanup, data consumed on retry    |
-| Repeated short seeks                 | Delivered bytes versus full-file size                          |
-| Screen lock/background               | Capture continuity if a capture workflow is later introduced   |
+| Scenario                             | Measurement                                                                      |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| Slow, stable connection              | Time to first audio, startup data, rebuffer count, total bytes                   |
+| Latency and jitter                   | Seek delay, playback stalls, failed requests                                     |
+| Brief disconnection during playback  | Recovery behavior and repeated bytes                                             |
+| Disconnection during download        | Resume status, validator behavior, final SHA-256                                 |
+| Disconnection during lecturer upload | Error state, temporary-file cleanup, data consumed on retry                      |
+| Repeated short seeks                 | Delivered bytes versus full-file size                                            |
+| Screen lock/background               | Whether capture continues, pauses, ends, or loses audio; no continuity guarantee |
 
 Current lecturer upload uses authorized sessions, fixed chunks, client SHA-256, and offset recovery. Local HTTP and production Chromium tests prove recovery from a deliberately aborted later chunk on one API instance; they do not prove real-carrier recovery, full-length phone uploads, process-crash recovery, or multi-instance staging. See `docs/lecture-uploads.md`.
 
@@ -101,6 +103,7 @@ Use decimal units consistently and measure actual files rather than assuming enc
 
 ```text
 approximate media bytes per hour = bit rate (bit/s) × 3600 ÷ 8
+32 kbit/s before container overhead ≈ 14.4 MB/hour
 48 kbit/s before container overhead ≈ 21.6 MB/hour
 128 kbit/s before container overhead ≈ 57.6 MB/hour
 

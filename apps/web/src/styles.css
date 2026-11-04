@@ -215,6 +215,20 @@ h1 {
   margin: 22px 0 0;
 }
 
+.text-link {
+  color: #205346;
+  display: inline-block;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.5;
+  margin-top: 18px;
+  text-underline-offset: 4px;
+}
+
+.text-link:hover {
+  color: #173f35;
+}
+
 .session-state {
   margin: 36px 0 0;
 }
@@ -512,6 +526,211 @@ h1 {
   margin-top: 10px;
 }
 
+.audio-intake {
+  margin-top: 22px;
+}
+
+.intake-switch {
+  background: #e7ece7;
+  border-radius: 4px;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+}
+
+.intake-switch button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #53615b;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.intake-switch button[aria-pressed='true'] {
+  background: #fbfcf9;
+  border-color: #b9c3bd;
+  color: #205346;
+}
+
+.lecture-capture {
+  border-bottom: 1px solid #d8ddd8;
+  margin-top: 18px;
+  padding: 4px 0 20px;
+}
+
+.capture-heading,
+.capture-draft-heading {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.capture-heading h4 {
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.capture-kicker {
+  color: #53615b;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.capture-format {
+  color: #53615b;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.capture-reference {
+  color: #53615b;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.capture-reference code {
+  color: #34443e;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  user-select: all;
+}
+
+.capture-consent {
+  align-items: start;
+  color: #34443e;
+  display: flex;
+  font-size: 0.85rem;
+  gap: 11px;
+  line-height: 1.55;
+  margin-top: 18px;
+}
+
+.capture-consent input {
+  accent-color: #205346;
+  flex: 0 0 auto;
+  height: 20px;
+  margin: 2px 0 0;
+  width: 20px;
+}
+
+.capture-start {
+  margin-top: 16px;
+}
+
+.capture-state,
+.capture-warning {
+  color: #53615b;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.capture-warning {
+  color: #795719;
+}
+
+.capture-live,
+.capture-draft,
+.capture-recovery {
+  margin-top: 16px;
+}
+
+.capture-live-status {
+  align-items: center;
+  color: #913b27;
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 750;
+  gap: 8px;
+}
+
+.capture-record-mark {
+  background: #ad4b32;
+  border-radius: 50%;
+  height: 9px;
+  width: 9px;
+}
+
+.capture-live[data-state='paused'] .capture-live-status {
+  color: #795719;
+}
+
+.capture-live[data-state='paused'] .capture-record-mark {
+  background: #a47a2c;
+  border-radius: 2px;
+}
+
+.capture-measurements {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 12px;
+}
+
+.capture-measurements strong {
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+
+.capture-measurements span,
+.capture-draft-heading span {
+  color: #53615b;
+  font-size: 0.8rem;
+}
+
+.capture-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.capture-draft-heading strong,
+.capture-recovery strong {
+  font-size: 0.92rem;
+}
+
+.capture-draft audio {
+  display: block;
+  margin-top: 14px;
+  max-width: 100%;
+  width: 100%;
+}
+
+.capture-recovery p {
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.capture-draft .upload-progress {
+  margin-top: 14px;
+}
+
+.audio-intake .upload-form {
+  margin-top: 18px;
+}
+
+@media (min-width: 480px) {
+  .capture-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
 .upload-form {
   align-items: end;
   display: grid;
@@ -558,5 +777,431 @@ h1 {
   .upload-form .data-note {
     grid-column: 1 / -1;
     margin-top: -4px;
+  }
+}
+
+.workspace-tabs {
+  border-bottom: 1px solid #b9c3bd;
+  display: flex;
+  gap: 24px;
+  margin-top: 34px;
+}
+
+.workspace-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #53615b;
+  cursor: pointer;
+  font-weight: 700;
+  margin-bottom: -1px;
+  min-height: 46px;
+  padding: 8px 0;
+}
+
+.workspace-tabs button[aria-pressed='true'] {
+  border-bottom-color: #205346;
+  color: #205346;
+}
+
+.admin-workspace,
+.roster-panel {
+  border-bottom: 1px solid #d8ddd8;
+  margin-top: 28px;
+  padding: 28px 0 12px;
+}
+
+.admin-workspace h2,
+.roster-panel h3 {
+  font-size: clamp(1.45rem, 4vw, 1.9rem);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.admin-intro,
+.admin-hint {
+  color: #53615b;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.admin-intro {
+  margin: 14px 0 0;
+  max-width: 66ch;
+}
+
+.admin-sections {
+  display: grid;
+  gap: 32px;
+  margin-top: 30px;
+}
+
+.admin-section {
+  border-top: 2px solid #60786e;
+  padding-top: 14px;
+}
+
+.admin-section-heading {
+  align-items: baseline;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.admin-section-heading h3,
+.admin-section-heading h4 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.admin-section-heading > span {
+  color: #53615b;
+  font-size: 0.76rem;
+}
+
+.admin-record-list {
+  margin-top: 12px;
+}
+
+.admin-record {
+  border-top: 1px solid #d8ddd8;
+  display: grid;
+  gap: 8px;
+  padding: 13px 0;
+}
+
+.admin-record-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-record-summary strong {
+  font-size: 0.88rem;
+}
+
+.admin-record-summary span {
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.admin-record-summary small,
+.roster-entry small {
+  color: #53615b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-transform: none;
+}
+
+.admin-edit summary,
+.admin-create summary {
+  color: #205346;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 6px 0;
+  width: fit-content;
+}
+
+.admin-create {
+  border-top: 1px solid #d8ddd8;
+  margin-top: 4px;
+  padding-top: 7px;
+}
+
+.admin-form,
+.roster-form {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-form {
+  background: #f0f3ed;
+  margin: 8px 0 4px;
+  padding: 16px;
+}
+
+.admin-form label,
+.roster-form label {
+  color: #34443e;
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 650;
+  gap: 6px;
+}
+
+.admin-form input,
+.admin-form select,
+.roster-form select {
+  background: #fbfcf9;
+  border: 1px solid #b9c3bd;
+  border-radius: 4px;
+  color: #1d2723;
+  min-height: 42px;
+  min-width: 0;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.admin-form .primary-button,
+.roster-form .primary-button {
+  justify-self: start;
+  min-height: 42px;
+}
+
+.admin-form .form-error,
+.roster-form .form-error {
+  margin: 0;
+}
+
+.capture-evidence-form .secondary-button {
+  justify-self: start;
+}
+
+.capture-evidence-form .secondary-button[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-record-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.roster-panel {
+  border-top: 2px solid #205346;
+  margin-top: 36px;
+}
+
+.roster-columns {
+  display: grid;
+  gap: 30px;
+  margin-top: 24px;
+}
+
+.roster-column {
+  min-width: 0;
+}
+
+.roster-form {
+  border-block: 1px solid #d8ddd8;
+  margin: 14px 0;
+  padding: 16px 0;
+}
+
+.roster-list {
+  display: grid;
+}
+
+.roster-entry {
+  align-items: start;
+  border-top: 1px solid #d8ddd8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+  padding: 13px 0;
+}
+
+.roster-entry > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.roster-entry strong,
+.roster-entry span {
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.roster-entry span {
+  color: #53615b;
+}
+
+.roster-entry .form-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.invitations-section {
+  margin-top: 30px;
+}
+
+.invitation-roles {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 0;
+  padding: 0;
+}
+
+.invitation-roles legend {
+  color: #34443e;
+  font-size: 0.78rem;
+  font-weight: 650;
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.admin-form .invitation-roles label {
+  align-items: center;
+  display: flex;
+  font-weight: 500;
+  gap: 7px;
+}
+
+.admin-form .invitation-roles input {
+  accent-color: #205346;
+  margin: 0;
+  min-height: 0;
+  width: auto;
+}
+
+.invitation-link {
+  background: #edf2eb;
+  border-left: 3px solid #205346;
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.invitation-link h4,
+.invitation-link p {
+  margin: 0;
+}
+
+.invitation-link h4 {
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.invitation-link p,
+.invitation-link label {
+  color: #53615b;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.invitation-link label {
+  display: grid;
+  font-weight: 650;
+  gap: 6px;
+}
+
+.invitation-link input {
+  background: #fbfcf9;
+  border: 1px solid #b9c3bd;
+  border-radius: 4px;
+  color: #1d2723;
+  min-width: 0;
+  padding: 10px;
+  width: 100%;
+}
+
+.invitation-link .secondary-button,
+.invitation-record .button-link {
+  justify-self: start;
+}
+
+.invitation-list {
+  display: grid;
+  margin-top: 16px;
+}
+
+.invitation-record {
+  border-top: 1px solid #d8ddd8;
+  display: grid;
+  gap: 7px;
+  padding: 15px 0;
+}
+
+.invitation-record-main {
+  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.invitation-record-main > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.invitation-record strong,
+.invitation-record-main span {
+  overflow-wrap: anywhere;
+}
+
+.invitation-record-main > div > span,
+.invitation-record small {
+  color: #53615b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.invitation-record .invitation-status {
+  color: #205346;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.invitation-record[data-status='revoked'] .invitation-status,
+.invitation-record[data-status='replaced'] .invitation-status,
+.invitation-record[data-status='expired'] .invitation-status {
+  color: #6b6257;
+}
+
+.invitation-details,
+.invitation-success {
+  border-block: 1px solid #d8ddd8;
+  margin-top: 36px;
+  max-width: 620px;
+  padding: 28px 0;
+}
+
+.invitation-details h2,
+.invitation-success h2 {
+  font-size: clamp(1.35rem, 4vw, 1.8rem);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.invitation-details > div > p:last-child,
+.invitation-success > p:not(.eyebrow) {
+  color: #53615b;
+  line-height: 1.6;
+}
+
+.invitation-sign-in {
+  align-items: center;
+  display: inline-flex;
+  margin-top: 20px;
+  text-decoration: none;
+}
+
+@media (min-width: 680px) {
+  .admin-sections,
+  .roster-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

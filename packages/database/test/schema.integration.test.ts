@@ -10,8 +10,10 @@ import {
   academicUnits,
   courseOfferings,
   enrollments,
+  institutionInvitations,
   institutions,
   lectureAudio,
+  lectureAudioCaptures,
   lectureAudioDerivatives,
   lectureAudioUploads,
   lecturerAssignments,
@@ -58,6 +60,56 @@ describe('academic database invariants', () => {
 
     expect(result.rows[0]?.version).toBe(7)
     expect(institution.createdAt).toBeInstanceOf(Date)
+  })
+
+  it('enforces one open invitation and complete acceptance provenance', async () => {
+    const fixture = await createAcademicFixture(db, 'invitations')
+    const values = {
+      institutionId: fixture.institution.id,
+      invitedByMembershipId: fixture.lecturerMembership.id,
+      email: 'invited@ctrorec.test',
+      displayName: 'Invited Person',
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+    }
+    const first = exactlyOne(
+      await db
+        .insert(institutionInvitations)
+        .values({ ...values, tokenHash: 'a'.repeat(64) })
+        .returning(),
+    )
+    await expectPostgresError(
+      db
+        .insert(institutionInvitations)
+        .values({ ...values, tokenHash: 'b'.repeat(64) }),
+      {
+        code: '23505',
+        constraint: 'institution_invitations_one_open_email_unique',
+      },
+    )
+    await expectPostgresError(
+      db
+        .update(institutionInvitations)
+        .set({ acceptedAt: new Date() })
+        .where(eq(institutionInvitations.id, first.id)),
+      {
+        code: '23514',
+        constraint: 'institution_invitations_acceptance_complete',
+      },
+    )
+
+    await db
+      .update(institutionInvitations)
+      .set({ revokedAt: new Date(), revocationReason: 'replaced' })
+      .where(eq(institutionInvitations.id, first.id))
+    await db
+      .insert(institutionInvitations)
+      .values({ ...values, tokenHash: 'b'.repeat(64) })
+    expect(
+      await db
+        .select()
+        .from(institutionInvitations)
+        .where(eq(institutionInvitations.email, values.email)),
+    ).toHaveLength(2)
   })
 
   it('rejects a course from another institution on an offering', async () => {
@@ -467,6 +519,80 @@ describe('academic database invariants', () => {
     await expectPostgresError(
       db.delete(lectureAudio).where(eq(lectureAudio.lectureId, lecture.id)),
       { code: '23001', constraint: 'lecture_audio_derivatives_original_fk' },
+    )
+  })
+
+  it('enforces capture-provenance tenancy, timeline, and original preservation', async () => {
+    const first = await createAcademicFixture(db, 'capture-one')
+    const second = await createAcademicFixture(db, 'capture-two')
+    const lecture = exactlyOne(
+      await db
+        .insert(lectures)
+        .values({
+          institutionId: first.institution.id,
+          courseOfferingId: first.offering.id,
+          createdByMembershipId: first.lecturerMembership.id,
+          title: 'Lecture with capture provenance',
+          occurredAt: new Date('2026-10-15T09:00:00.000Z'),
+        })
+        .returning(),
+    )
+    await db.insert(lectureAudio).values({
+      lectureId: lecture.id,
+      institutionId: first.institution.id,
+      uploadedByMembershipId: first.lecturerMembership.id,
+      storageProvider: 'local',
+      storageKey: 'audio/original-for-capture',
+      originalFileName: 'lecture.webm',
+      mediaType: 'audio/webm',
+      byteSize: 4_044,
+      sha256: 'a'.repeat(64),
+    })
+    const capture = {
+      lectureId: lecture.id,
+      institutionId: first.institution.id,
+      clientCaptureId: '019a1000-0000-7000-8000-0000000000c1',
+      recorderMimeType: 'audio/webm;codecs=opus',
+      consentAttestedAt: new Date('2026-10-15T08:59:59.000Z'),
+      startedAt: new Date('2026-10-15T09:00:00.000Z'),
+      stoppedAt: new Date('2026-10-15T09:05:00.000Z'),
+      durationMs: 300_000,
+      chunkCount: 150,
+      persistentStorageGranted: true,
+      stopReason: 'stopped',
+      hashingDurationMs: 125,
+      uploadDurationMs: 2_500,
+      uploadRetryCount: 3,
+    }
+
+    await expectPostgresError(
+      db.insert(lectureAudioCaptures).values({
+        ...capture,
+        institutionId: second.institution.id,
+      }),
+      { code: '23503', constraint: 'lecture_audio_captures_original_fk' },
+    )
+    await db.insert(lectureAudioCaptures).values(capture)
+    await expectPostgresError(
+      db
+        .update(lectureAudioCaptures)
+        .set({ startedAt: new Date('2026-10-15T09:06:00.000Z') })
+        .where(eq(lectureAudioCaptures.lectureId, lecture.id)),
+      { code: '23514', constraint: 'lecture_audio_captures_times_valid' },
+    )
+    await expectPostgresError(
+      db
+        .update(lectureAudioCaptures)
+        .set({ uploadRetryCount: null })
+        .where(eq(lectureAudioCaptures.lectureId, lecture.id)),
+      {
+        code: '23514',
+        constraint: 'lecture_audio_captures_handoff_measurements_valid',
+      },
+    )
+    await expectPostgresError(
+      db.delete(lectureAudio).where(eq(lectureAudio.lectureId, lecture.id)),
+      { code: '23001', constraint: 'lecture_audio_captures_original_fk' },
     )
   })
 
